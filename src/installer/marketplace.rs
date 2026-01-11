@@ -254,7 +254,12 @@ pub fn search_plugin(query: &str) -> Result<Vec<(String, PluginInfo)>> {
     let mut results = Vec::new();
     let query_lower = query.to_lowercase();
 
-    for (marketplace_name, marketplace) in &known.marketplaces {
+    // Sort marketplace names for deterministic iteration order
+    let mut marketplace_names: Vec<&String> = known.marketplaces.keys().collect();
+    marketplace_names.sort();
+
+    for marketplace_name in marketplace_names {
+        let marketplace = &known.marketplaces[marketplace_name];
         if let Ok(manifest) = load_marketplace_manifest(&marketplace.install_location) {
             for plugin in manifest.plugins {
                 let name_match = plugin.name.to_lowercase().contains(&query_lower);
@@ -270,6 +275,9 @@ pub fn search_plugin(query: &str) -> Result<Vec<(String, PluginInfo)>> {
             }
         }
     }
+
+    // Sort results by marketplace name, then plugin name for consistent output
+    results.sort_by(|a, b| (&a.0, &a.1.name).cmp(&(&b.0, &b.1.name)));
 
     Ok(results)
 }
@@ -287,7 +295,8 @@ pub fn find_plugin(name: &str, marketplace: Option<&str>) -> Result<(String, Plu
     };
 
     // Build list of marketplaces to search
-    let marketplaces_to_search: Vec<(String, &KnownMarketplace)> =
+    // Sort by name for deterministic order when searching multiple marketplaces
+    let mut marketplaces_to_search: Vec<(String, &KnownMarketplace)> =
         if let Some(mp) = marketplace_name {
             known
                 .get(mp)
@@ -300,6 +309,7 @@ pub fn find_plugin(name: &str, marketplace: Option<&str>) -> Result<(String, Plu
                 .map(|(k, v)| (k.clone(), v))
                 .collect()
         };
+    marketplaces_to_search.sort_by(|a, b| a.0.cmp(&b.0));
 
     for (mp_name, marketplace) in marketplaces_to_search {
         if let Ok(manifest) = load_marketplace_manifest(&marketplace.install_location) {
