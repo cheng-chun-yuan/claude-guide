@@ -1,7 +1,9 @@
 mod actions;
 mod app;
+mod cli;
 mod config;
 mod event;
+mod installer;
 mod keybindings;
 mod ui;
 
@@ -16,23 +18,23 @@ use ratatui::prelude::*;
 use std::io;
 
 use app::{App, InputMode, ModalType};
+use cli::{Cli, execute_command};
 use event::{Event, EventHandler};
 use keybindings::map_key_to_action;
 
-#[derive(Parser)]
-#[command(name = "claude-guide")]
-#[command(author = "Your Name")]
-#[command(version = "0.1.0")]
-#[command(about = "A TUI for managing Claude Code configurations", long_about = None)]
-struct Cli {
-    /// Enable debug mode
-    #[arg(short, long)]
-    debug: bool,
+fn main() -> Result<()> {
+    let cli = Cli::parse();
+
+    // If a subcommand is provided, execute it and exit
+    if let Some(command) = cli.command {
+        return execute_command(command);
+    }
+
+    // Otherwise, launch the TUI
+    run_tui()
 }
 
-fn main() -> Result<()> {
-    let _cli = Cli::parse();
-
+fn run_tui() -> Result<()> {
     // Setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
