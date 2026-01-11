@@ -78,27 +78,57 @@ pub fn parse_github_url(url: &str) -> Result<(String, String)> {
 }
 
 /// Clone a GitHub repository to a destination directory using git
+/// Uses atomic replacement: clones to temp dir first, then replaces destination
+/// only on success. This prevents data loss if clone fails during reinstall.
 pub fn clone_repo(url: &str, dest: &Path) -> Result<()> {
     // Ensure parent directory exists
-    if let Some(parent) = dest.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
+    let parent = dest
+        .parent()
+        .ok_or_else(|| anyhow!("Invalid destination path: no parent directory"))?;
+    std::fs::create_dir_all(parent)?;
 
-    // Remove destination if it exists
-    if dest.exists() {
-        std::fs::remove_dir_all(dest)?;
+    // Clone to a temporary directory first to avoid data loss on failure
+    let temp_dest = parent.join(format!(
+        ".{}.tmp.{}",
+        dest.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("clone"),
+        std::process::id()
+    ));
+
+    // Clean up any leftover temp directory from previous failed attempts
+    if temp_dest.exists() {
+        std::fs::remove_dir_all(&temp_dest)?;
     }
 
     let output = Command::new("git")
         .args(["clone", "--depth", "1", url])
-        .arg(dest)
+        .arg(&temp_dest)
         .output()
         .context("Failed to execute git clone")?;
 
     if !output.status.success() {
+        // Clean up temp directory on failure
+        let _ = std::fs::remove_dir_all(&temp_dest);
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(anyhow!("Git clone failed: {}", stderr));
     }
+
+    // Clone succeeded - now safely replace the destination
+    // Remove old destination if it exists
+    if dest.exists() {
+        std::fs::remove_dir_all(dest)?;
+    }
+
+    // Move temp to final destination
+    std::fs::rename(&temp_dest, dest).with_context(|| {
+        // If rename fails, try to clean up temp
+        let _ = std::fs::remove_dir_all(&temp_dest);
+        format!(
+            "Failed to move cloned repository to {}",
+            dest.display()
+        )
+    })?;
 
     Ok(())
 }
