@@ -14,7 +14,7 @@ pub struct Settings {
     #[serde(default)]
     pub mcp_servers: HashMap<String, McpServer>,
     #[serde(default)]
-    pub enabled_plugins: Vec<String>,
+    pub enabled_plugins: HashMap<String, bool>,
     #[serde(flatten)]
     pub other: HashMap<String, Value>,
 }

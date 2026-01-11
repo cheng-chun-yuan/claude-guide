@@ -92,24 +92,31 @@ impl Hook {
     }
 }
 
+/// A group of hooks (the actual format in settings.json has nested "hooks" array)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HookGroup {
+    #[serde(default)]
+    pub hooks: Vec<Hook>,
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct HooksConfig {
     #[serde(default, rename = "PreToolUse")]
-    pub pre_tool_use: Vec<Hook>,
+    pub pre_tool_use: Vec<HookGroup>,
     #[serde(default, rename = "PostToolUse")]
-    pub post_tool_use: Vec<Hook>,
+    pub post_tool_use: Vec<HookGroup>,
     #[serde(default, rename = "Notification")]
-    pub notification: Vec<Hook>,
+    pub notification: Vec<HookGroup>,
     #[serde(default, rename = "Stop")]
-    pub stop: Vec<Hook>,
+    pub stop: Vec<HookGroup>,
     #[serde(default, rename = "SubagentStop")]
-    pub subagent_stop: Vec<Hook>,
+    pub subagent_stop: Vec<HookGroup>,
     #[serde(default, rename = "UserPromptSubmit")]
-    pub user_prompt_submit: Vec<Hook>,
+    pub user_prompt_submit: Vec<HookGroup>,
 }
 
 impl HooksConfig {
-    pub fn get_hooks(&self, event: &HookEvent) -> &Vec<Hook> {
+    pub fn get_hook_groups(&self, event: &HookEvent) -> &Vec<HookGroup> {
         match event {
             HookEvent::PreToolUse => &self.pre_tool_use,
             HookEvent::PostToolUse => &self.post_tool_use,
@@ -120,7 +127,7 @@ impl HooksConfig {
         }
     }
 
-    pub fn get_hooks_mut(&mut self, event: &HookEvent) -> &mut Vec<Hook> {
+    pub fn get_hook_groups_mut(&mut self, event: &HookEvent) -> &mut Vec<HookGroup> {
         match event {
             HookEvent::PreToolUse => &mut self.pre_tool_use,
             HookEvent::PostToolUse => &mut self.post_tool_use,
@@ -131,22 +138,28 @@ impl HooksConfig {
         }
     }
 
+    /// Get all hooks flattened from all groups
     pub fn all_hooks(&self) -> Vec<(HookEvent, &Hook)> {
         let mut result = Vec::new();
         for event in HookEvent::all() {
-            for hook in self.get_hooks(&event) {
-                result.push((event.clone(), hook));
+            for group in self.get_hook_groups(&event) {
+                for hook in &group.hooks {
+                    result.push((event.clone(), hook));
+                }
             }
         }
         result
     }
 
     pub fn total_count(&self) -> usize {
-        self.pre_tool_use.len()
-            + self.post_tool_use.len()
-            + self.notification.len()
-            + self.stop.len()
-            + self.subagent_stop.len()
-            + self.user_prompt_submit.len()
+        HookEvent::all()
+            .iter()
+            .map(|e| {
+                self.get_hook_groups(e)
+                    .iter()
+                    .map(|g| g.hooks.len())
+                    .sum::<usize>()
+            })
+            .sum()
     }
 }

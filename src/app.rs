@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use crate::actions::Action;
 use crate::config::{
     scan_agents, scan_commands, scan_plugins, scan_skills, Agent, Command, Hook, HookAction,
-    HookEvent, McpServer, Plugin, Settings, Skill,
+    HookEvent, HookGroup, McpServer, Plugin, Settings, Skill,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -464,14 +464,12 @@ impl App {
     fn toggle_item(&mut self) -> Result<()> {
         if let Tab::Plugins = self.tab {
             if let Some(ListItem::Plugin(p)) = self.selected_item() {
-                if p.enabled {
-                    self.settings.enabled_plugins.retain(|id| id != &p.id);
-                } else {
-                    self.settings.enabled_plugins.push(p.id.clone());
-                }
+                // Toggle in the HashMap
+                let new_state = !p.enabled;
+                self.settings.enabled_plugins.insert(p.id.clone(), new_state);
                 // Update local plugins list
                 if let Some(plugin) = self.plugins.iter_mut().find(|pl| pl.id == p.id) {
-                    plugin.enabled = !plugin.enabled;
+                    plugin.enabled = new_state;
                 }
                 self.unsaved_changes = true;
             }
@@ -520,7 +518,8 @@ impl App {
                             matcher: None,
                             action,
                         };
-                        self.settings.hooks.get_hooks_mut(&event).push(hook);
+                        let hook_group = HookGroup { hooks: vec![hook] };
+                        self.settings.hooks.get_hook_groups_mut(&event).push(hook_group);
                         self.unsaved_changes = true;
                     }
                 }
@@ -571,18 +570,24 @@ impl App {
     fn execute_confirm_action(&mut self, action: ConfirmAction) -> Result<()> {
         match action {
             ConfirmAction::DeleteHook { event, index } => {
-                // Find the actual index in the specific event's hook list
+                // Find the actual hook in the nested structure
                 let mut count = 0;
                 for ev in HookEvent::all() {
-                    let hooks = self.settings.hooks.get_hooks_mut(&ev);
-                    for i in 0..hooks.len() {
-                        if count == index && ev == event {
-                            hooks.remove(i);
-                            self.unsaved_changes = true;
-                            self.adjust_list_index();
-                            return Ok(());
+                    let groups = self.settings.hooks.get_hook_groups_mut(&ev);
+                    for gi in 0..groups.len() {
+                        for hi in 0..groups[gi].hooks.len() {
+                            if count == index && ev == event {
+                                groups[gi].hooks.remove(hi);
+                                // Remove empty groups
+                                if groups[gi].hooks.is_empty() {
+                                    groups.remove(gi);
+                                }
+                                self.unsaved_changes = true;
+                                self.adjust_list_index();
+                                return Ok(());
+                            }
+                            count += 1;
                         }
-                        count += 1;
                     }
                 }
             }

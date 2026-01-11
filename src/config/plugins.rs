@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
@@ -39,7 +40,7 @@ impl Plugin {
     }
 }
 
-pub fn scan_plugins(plugins_dir: &Path, enabled_plugins: &[String]) -> Result<Vec<Plugin>> {
+pub fn scan_plugins(plugins_dir: &Path, enabled_plugins: &HashMap<String, bool>) -> Result<Vec<Plugin>> {
     let mut plugins = Vec::new();
     let marketplaces_dir = plugins_dir.join("marketplaces");
 
@@ -69,7 +70,10 @@ pub fn scan_plugins(plugins_dir: &Path, enabled_plugins: &[String]) -> Result<Ve
                     .unwrap_or("unknown")
                     .to_string();
 
-                let enabled = enabled_plugins.contains(&id);
+                // Check if plugin is enabled - look for exact match or pattern match
+                let enabled = enabled_plugins.iter().any(|(key, &val)| {
+                    val && (key == &id || key.contains(&id) || id.contains(key))
+                });
 
                 plugins.push(Plugin {
                     id,
