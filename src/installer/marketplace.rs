@@ -153,10 +153,24 @@ pub fn update_marketplace(name: Option<&str>) -> Result<()> {
             names.len()
         );
 
-        for name in names {
-            if let Err(e) = update_marketplace(Some(&name)) {
+        let mut failures: Vec<(String, String)> = Vec::new();
+
+        for name in &names {
+            if let Err(e) = update_marketplace(Some(name)) {
                 println!("{} Failed to update '{}': {}", style("").red(), name, e);
+                failures.push((name.clone(), e.to_string()));
             }
+        }
+
+        // Return error if any updates failed
+        if !failures.is_empty() {
+            let failed_names: Vec<&str> = failures.iter().map(|(n, _)| n.as_str()).collect();
+            return Err(anyhow!(
+                "Failed to update {} of {} marketplace(s): {}",
+                failures.len(),
+                names.len(),
+                failed_names.join(", ")
+            ));
         }
     }
 
