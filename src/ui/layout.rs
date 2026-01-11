@@ -1,15 +1,15 @@
 use ratatui::prelude::*;
 
-use crate::app::App;
 use super::{render_detail, render_list, render_modal, render_status_bar, render_tabs};
+use crate::app::App;
 
 pub fn render(frame: &mut Frame, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),  // Tab bar
-            Constraint::Min(10),    // Main content
-            Constraint::Length(2),  // Status bar
+            Constraint::Length(3), // Tab bar
+            Constraint::Min(10),   // Main content
+            Constraint::Length(2), // Status bar
         ])
         .split(frame.area());
 
@@ -20,8 +20,8 @@ pub fn render(frame: &mut Frame, app: &App) {
     let main_chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Percentage(35),  // List
-            Constraint::Percentage(65),  // Detail
+            Constraint::Percentage(35), // List
+            Constraint::Percentage(65), // Detail
         ])
         .split(chunks[1]);
 

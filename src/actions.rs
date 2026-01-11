@@ -42,6 +42,7 @@ pub enum Action {
 }
 
 impl Action {
+    #[allow(dead_code)]
     pub fn description(&self) -> &'static str {
         match self {
             Action::MoveUp => "Move up",

@@ -14,7 +14,9 @@ pub fn render_status_bar(frame: &mut Frame, area: Rect, app: &App) {
             vec![
                 Span::styled(
                     format!("[{}]", key),
-                    Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(format!(" {} ", desc), Style::default().fg(Color::White)),
                 Span::raw(" "),
@@ -28,9 +30,7 @@ pub fn render_status_bar(frame: &mut Frame, area: Rect, app: &App) {
     if app.unsaved_changes {
         line_spans.push(Span::styled(
             " [UNSAVED] ",
-            Style::default()
-                .fg(Color::Red)
-                .add_modifier(Modifier::BOLD),
+            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
         ));
     }
 

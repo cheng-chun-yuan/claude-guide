@@ -48,8 +48,7 @@ impl Settings {
                 .with_context(|| format!("Failed to create directory {}", parent.display()))?;
         }
 
-        let content = serde_json::to_string_pretty(self)
-            .context("Failed to serialize settings")?;
+        let content = serde_json::to_string_pretty(self).context("Failed to serialize settings")?;
 
         std::fs::write(path, content)
             .with_context(|| format!("Failed to write {}", path.display()))?;
@@ -57,6 +56,7 @@ impl Settings {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn mcp_servers_config(&self) -> McpServersConfig {
         McpServersConfig {
             servers: self.mcp_servers.clone(),

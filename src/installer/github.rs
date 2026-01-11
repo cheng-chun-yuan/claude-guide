@@ -19,7 +19,18 @@ pub fn parse_github_url(url: &str) -> Result<(String, String)> {
         let path = url.strip_prefix("git@github.com:").unwrap();
         let parts: Vec<&str> = path.split('/').collect();
         if parts.len() >= 2 {
-            return Ok((parts[0].to_string(), parts[1].to_string()));
+            let owner = parts[0].to_string();
+            let repo = parts[1].to_string();
+
+            // Validate owner and repo are not empty to prevent directory traversal issues
+            if owner.is_empty() {
+                return Err(anyhow!("Invalid GitHub URL: owner is empty"));
+            }
+            if repo.is_empty() {
+                return Err(anyhow!("Invalid GitHub URL: repository name is empty"));
+            }
+
+            return Ok((owner, repo));
         }
     }
 
@@ -74,20 +85,25 @@ pub fn clone_repo(url: &str, dest: &Path) -> Result<()> {
 }
 
 /// Download a GitHub repository as a zip file and extract it
+#[allow(dead_code)]
 pub fn download_and_extract(owner: &str, repo: &str, dest: &Path) -> Result<()> {
-    let url = format!(
+    let main_url = format!(
         "https://github.com/{}/{}/archive/refs/heads/main.zip",
         owner, repo
     );
 
-    // Try main branch first, then master
-    let response = reqwest::blocking::get(&url).or_else(|_| {
-        let master_url = format!(
-            "https://github.com/{}/{}/archive/refs/heads/master.zip",
-            owner, repo
-        );
-        reqwest::blocking::get(&master_url)
-    })?;
+    // Try main branch first, then master if main fails (including HTTP errors like 404)
+    let response = match reqwest::blocking::get(&main_url) {
+        Ok(resp) if resp.status().is_success() => resp,
+        Ok(_) | Err(_) => {
+            // main branch failed (HTTP error or network error), try master
+            let master_url = format!(
+                "https://github.com/{}/{}/archive/refs/heads/master.zip",
+                owner, repo
+            );
+            reqwest::blocking::get(&master_url)?
+        }
+    };
 
     if !response.status().is_success() {
         return Err(anyhow!(
@@ -189,5 +205,43 @@ mod tests {
             assert_eq!(owner, expected_owner);
             assert_eq!(repo, expected_repo);
         }
+    }
+
+    #[test]
+    fn test_parse_github_url_empty_repo_ssh() {
+        // SSH URL with empty repo name should fail
+        let result = parse_github_url("git@github.com:owner/");
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("repository name is empty"));
+    }
+
+    #[test]
+    fn test_parse_github_url_empty_owner_ssh() {
+        // SSH URL with empty owner should fail
+        let result = parse_github_url("git@github.com:/repo");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("owner is empty"));
+    }
+
+    #[test]
+    fn test_parse_github_url_empty_repo_https() {
+        // HTTPS URL with empty repo name should fail
+        let result = parse_github_url("https://github.com/owner/");
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("repository name is empty"));
+    }
+
+    #[test]
+    fn test_parse_github_url_empty_owner_https() {
+        // HTTPS URL with empty owner should fail
+        let result = parse_github_url("https://github.com//repo");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("owner is empty"));
     }
 }

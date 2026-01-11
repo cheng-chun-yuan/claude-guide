@@ -94,11 +94,7 @@ pub fn get_keybinding_hints(mode: &InputMode) -> Vec<(&'static str, &'static str
             ("?", "Help"),
             ("q", "Quit"),
         ],
-        InputMode::Insert => vec![
-            ("Esc", "Cancel"),
-            ("Enter", "Confirm"),
-            ("Ctrl+S", "Save"),
-        ],
+        InputMode::Insert => vec![("Esc", "Cancel"), ("Enter", "Confirm"), ("Ctrl+S", "Save")],
         InputMode::Modal => vec![
             ("y/Enter", "Confirm"),
             ("n/Esc", "Cancel"),

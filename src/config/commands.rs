@@ -27,6 +27,7 @@ impl Command {
         })
     }
 
+    #[allow(dead_code)]
     pub fn preview(&self, max_lines: usize) -> String {
         self.content
             .lines()
@@ -50,10 +51,14 @@ pub fn scan_commands(commands_dir: &Path) -> Result<Vec<Command>> {
         .filter_map(|e| e.ok())
     {
         let path = entry.path();
-        if path.is_file() && path.extension().map_or(false, |e| e == "md") {
+        if path.is_file() && path.extension().is_some_and(|e| e == "md") {
             match Command::load(path) {
                 Ok(cmd) => commands.push(cmd),
-                Err(e) => eprintln!("Warning: Failed to load command at {}: {}", path.display(), e),
+                Err(e) => eprintln!(
+                    "Warning: Failed to load command at {}: {}",
+                    path.display(),
+                    e
+                ),
             }
         }
     }

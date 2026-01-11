@@ -235,10 +235,7 @@ fn format_item_detail(item: &ListItem) -> Vec<Line<'static>> {
             if !server.args.is_empty() {
                 lines.push(Line::from(vec![
                     Span::styled("Args: ", Style::default().fg(Color::Cyan)),
-                    Span::styled(
-                        server.args.join(" "),
-                        Style::default().fg(Color::White),
-                    ),
+                    Span::styled(server.args.join(" "), Style::default().fg(Color::White)),
                 ]));
                 lines.push(Line::from(""));
             }

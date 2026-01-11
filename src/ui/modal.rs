@@ -88,19 +88,25 @@ fn render_add_hook_modal(
     selected_field: usize,
 ) {
     let event_style = if selected_field == 0 {
-        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD)
     } else {
         Style::default().fg(Color::White)
     };
 
     let type_style = if selected_field == 1 {
-        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD)
     } else {
         Style::default().fg(Color::White)
     };
 
     let target_style = if selected_field == 2 {
-        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD)
     } else {
         Style::default().fg(Color::White)
     };
@@ -170,19 +176,17 @@ fn render_add_hook_modal(
     frame.render_widget(paragraph, area);
 }
 
-fn render_simple_input_modal(
-    frame: &mut Frame,
-    area: Rect,
-    title: &str,
-    label: &str,
-    value: &str,
-) {
+fn render_simple_input_modal(frame: &mut Frame, area: Rect, title: &str, label: &str, value: &str) {
     let content = vec![
         Line::from(""),
         Line::from(vec![
             Span::styled(format!("{} ", label), Style::default().fg(Color::Cyan)),
             Span::styled(
-                if value.is_empty() { "<enter name>" } else { value },
+                if value.is_empty() {
+                    "<enter name>"
+                } else {
+                    value
+                },
                 Style::default().fg(Color::White),
             ),
             Span::styled("_", Style::default().fg(Color::Yellow)),
@@ -224,19 +228,25 @@ fn render_add_mcp_modal(
     selected_field: usize,
 ) {
     let name_style = if selected_field == 0 {
-        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD)
     } else {
         Style::default().fg(Color::White)
     };
 
     let command_style = if selected_field == 1 {
-        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD)
     } else {
         Style::default().fg(Color::White)
     };
 
     let args_style = if selected_field == 2 {
-        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD)
     } else {
         Style::default().fg(Color::White)
     };
@@ -254,7 +264,11 @@ fn render_add_mcp_modal(
         Line::from(vec![
             Span::styled("Name: ", Style::default().fg(Color::Cyan)),
             Span::styled(
-                if name.is_empty() { "<server name>" } else { name },
+                if name.is_empty() {
+                    "<server name>"
+                } else {
+                    name
+                },
                 name_style,
             ),
             cursor(0),

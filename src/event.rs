@@ -2,6 +2,7 @@ use anyhow::Result;
 use crossterm::event::{self, Event as CrosstermEvent, KeyEvent};
 use std::time::Duration;
 
+#[allow(dead_code)]
 pub enum Event {
     Key(KeyEvent),
     Tick,

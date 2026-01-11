@@ -72,11 +72,7 @@ pub fn install_plugin_from_url(url: &str) -> Result<String> {
 
 /// Install a plugin from a marketplace
 pub fn install_plugin_from_marketplace(name: &str) -> Result<String> {
-    println!(
-        "{} Searching for plugin '{}'...",
-        style("→").cyan(),
-        name
-    );
+    println!("{} Searching for plugin '{}'...", style("→").cyan(), name);
 
     let pb = ProgressBar::new_spinner();
     pb.set_style(
@@ -147,11 +143,7 @@ pub fn install_plugin_from_marketplace(name: &str) -> Result<String> {
 
 /// Search for plugins across all marketplaces
 pub fn search_plugins(query: &str) -> Result<()> {
-    println!(
-        "{} Searching for '{}'...",
-        style("→").cyan(),
-        query
-    );
+    println!("{} Searching for '{}'...", style("→").cyan(), query);
 
     let results = search_plugin(query)?;
 
@@ -161,11 +153,7 @@ pub fn search_plugins(query: &str) -> Result<()> {
     }
 
     println!();
-    println!(
-        "{} Found {} plugin(s):",
-        style("✓").green(),
-        results.len()
-    );
+    println!("{} Found {} plugin(s):", style("✓").green(), results.len());
     println!();
 
     for (marketplace, plugin) in results {
@@ -262,11 +250,7 @@ pub fn remove_plugin(name: &str) -> Result<()> {
 
     registry.save()?;
 
-    println!(
-        "{} Plugin '{}' removed.",
-        style("✓").green(),
-        name
-    );
+    println!("{} Plugin '{}' removed.", style("✓").green(), name);
 
     Ok(())
 }

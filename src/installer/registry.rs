@@ -83,11 +83,9 @@ impl Registry {
             _ => return None,
         };
 
-        if let Some(pos) = list.iter().position(|i| i.name == name) {
-            Some(list.remove(pos))
-        } else {
-            None
-        }
+        list.iter()
+            .position(|i| i.name == name)
+            .map(|pos| list.remove(pos))
     }
 
     /// Get a list of items by type
@@ -102,6 +100,7 @@ impl Registry {
     }
 
     /// Find an item by name
+    #[allow(dead_code)]
     pub fn find(&self, item_type: &str, name: &str) -> Option<&InstalledItem> {
         self.list(item_type).iter().find(|i| i.name == name)
     }

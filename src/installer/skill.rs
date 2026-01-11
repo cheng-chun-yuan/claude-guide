@@ -125,11 +125,7 @@ pub fn remove_skill(name: &str) -> Result<()> {
 
     registry.save()?;
 
-    println!(
-        "{} Skill '{}' removed.",
-        style("✓").green(),
-        name
-    );
+    println!("{} Skill '{}' removed.", style("✓").green(), name);
 
     Ok(())
 }

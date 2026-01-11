@@ -25,6 +25,7 @@ impl McpServer {
         self
     }
 
+    #[allow(dead_code)]
     pub fn with_env(mut self, env: HashMap<String, String>) -> Self {
         self.env = env;
         self
@@ -32,11 +33,13 @@ impl McpServer {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct McpServersConfig {
     #[serde(flatten)]
     pub servers: HashMap<String, McpServer>,
 }
 
+#[allow(dead_code)]
 impl McpServersConfig {
     pub fn new() -> Self {
         Self {

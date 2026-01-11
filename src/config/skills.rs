@@ -87,7 +87,9 @@ pub fn scan_skills(skills_dir: &Path) -> Result<Vec<Skill>> {
             if skill_file.exists() {
                 match Skill::load(path) {
                     Ok(skill) => skills.push(skill),
-                    Err(e) => eprintln!("Warning: Failed to load skill at {}: {}", path.display(), e),
+                    Err(e) => {
+                        eprintln!("Warning: Failed to load skill at {}: {}", path.display(), e)
+                    }
                 }
             }
         }

@@ -175,11 +175,7 @@ pub fn execute_command(cmd: Commands) -> Result<()> {
                 println!("Command listing not yet implemented.");
             }
             _ => {
-                println!(
-                    "{} Unknown item type: {}",
-                    style("!").yellow(),
-                    item_type
-                );
+                println!("{} Unknown item type: {}", style("!").yellow(), item_type);
                 println!("Valid types: skills, plugins, agents, commands, marketplaces");
             }
         },
@@ -200,11 +196,7 @@ pub fn execute_command(cmd: Commands) -> Result<()> {
                 println!("Command removal not yet implemented.");
             }
             _ => {
-                println!(
-                    "{} Unknown item type: {}",
-                    style("!").yellow(),
-                    item_type
-                );
+                println!("{} Unknown item type: {}", style("!").yellow(), item_type);
                 println!("Valid types: skill, plugin, agent, command, marketplace");
             }
         },

@@ -25,7 +25,11 @@ pub fn render_tabs(frame: &mut Frame, area: Rect, app: &App) {
             Block::default()
                 .borders(Borders::BOTTOM)
                 .title(" Claude Guide ")
-                .title_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                .title_style(
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
         )
         .select(app.tab.index())
         .style(Style::default().fg(Color::White))

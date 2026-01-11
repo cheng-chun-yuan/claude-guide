@@ -18,7 +18,7 @@ use ratatui::prelude::*;
 use std::io;
 
 use app::{App, InputMode, ModalType};
-use cli::{Cli, execute_command};
+use cli::{execute_command, Cli};
 use event::{Event, EventHandler};
 use keybindings::map_key_to_action;
 
@@ -96,7 +96,9 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> 
                                 }
                             }
                             // Otherwise, treat as character input
-                            if app.modal_index == 2 || !matches!(&app.modal, Some(ModalType::AddHook { .. })) {
+                            if app.modal_index == 2
+                                || !matches!(&app.modal, Some(ModalType::AddHook { .. }))
+                            {
                                 app.update_modal_field(' ');
                                 continue;
                             }

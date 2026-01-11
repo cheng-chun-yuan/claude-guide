@@ -180,6 +180,7 @@ pub struct App {
     // Configuration
     pub settings: Settings,
     pub settings_path: PathBuf,
+    #[allow(dead_code)]
     pub claude_dir: PathBuf,
 
     // Loaded data
@@ -444,10 +445,7 @@ impl App {
                 ),
                 ListItem::Mcp { name, .. } => (
                     "Delete MCP Server".to_string(),
-                    format!(
-                        "Are you sure you want to delete MCP server '{}'?",
-                        name
-                    ),
+                    format!("Are you sure you want to delete MCP server '{}'?", name),
                     ConfirmAction::DeleteMcp { name },
                 ),
             };
@@ -466,7 +464,9 @@ impl App {
             if let Some(ListItem::Plugin(p)) = self.selected_item() {
                 // Toggle in the HashMap
                 let new_state = !p.enabled;
-                self.settings.enabled_plugins.insert(p.id.clone(), new_state);
+                self.settings
+                    .enabled_plugins
+                    .insert(p.id.clone(), new_state);
                 // Update local plugins list
                 if let Some(plugin) = self.plugins.iter_mut().find(|pl| pl.id == p.id) {
                     plugin.enabled = new_state;
@@ -519,7 +519,10 @@ impl App {
                             action,
                         };
                         let hook_group = HookGroup { hooks: vec![hook] };
-                        self.settings.hooks.get_hook_groups_mut(&event).push(hook_group);
+                        self.settings
+                            .hooks
+                            .get_hook_groups_mut(&event)
+                            .push(hook_group);
                         self.unsaved_changes = true;
                     }
                 }
@@ -544,10 +547,8 @@ impl App {
                     args,
                 } => {
                     if !name.is_empty() && !command.is_empty() {
-                        let args: Vec<String> = args
-                            .split_whitespace()
-                            .map(|s| s.to_string())
-                            .collect();
+                        let args: Vec<String> =
+                            args.split_whitespace().map(|s| s.to_string()).collect();
                         let server = McpServer::new(command).with_args(args);
                         self.settings.mcp_servers.insert(name, server);
                         self.unsaved_changes = true;
@@ -683,14 +684,16 @@ impl App {
                 ModalType::AddSkill { name } => name.push(c),
                 ModalType::AddCommand { name } => name.push(c),
                 ModalType::AddAgent { name } => name.push(c),
-                ModalType::AddMcp { name, command, args } => {
-                    match self.modal_index {
-                        0 => name.push(c),
-                        1 => command.push(c),
-                        2 => args.push(c),
-                        _ => {}
-                    }
-                }
+                ModalType::AddMcp {
+                    name,
+                    command,
+                    args,
+                } => match self.modal_index {
+                    0 => name.push(c),
+                    1 => command.push(c),
+                    2 => args.push(c),
+                    _ => {}
+                },
                 _ => {}
             }
         }
@@ -711,14 +714,22 @@ impl App {
                 ModalType::AddAgent { name } => {
                     name.pop();
                 }
-                ModalType::AddMcp { name, command, args } => {
-                    match self.modal_index {
-                        0 => { name.pop(); }
-                        1 => { command.pop(); }
-                        2 => { args.pop(); }
-                        _ => {}
+                ModalType::AddMcp {
+                    name,
+                    command,
+                    args,
+                } => match self.modal_index {
+                    0 => {
+                        name.pop();
                     }
-                }
+                    1 => {
+                        command.pop();
+                    }
+                    2 => {
+                        args.pop();
+                    }
+                    _ => {}
+                },
                 _ => {}
             }
         }
@@ -749,12 +760,10 @@ impl App {
             let current_idx = events.iter().position(|e| e == event).unwrap_or(0);
             let new_idx = if forward {
                 (current_idx + 1) % events.len()
+            } else if current_idx == 0 {
+                events.len() - 1
             } else {
-                if current_idx == 0 {
-                    events.len() - 1
-                } else {
-                    current_idx - 1
-                }
+                current_idx - 1
             };
             *event = events[new_idx].clone();
         }

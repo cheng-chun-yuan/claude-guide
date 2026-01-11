@@ -87,7 +87,7 @@ pub fn scan_agents(agents_dir: &Path) -> Result<Vec<Agent>> {
         .filter_map(|e| e.ok())
     {
         let path = entry.path();
-        if path.is_file() && path.extension().map_or(false, |e| e == "md") {
+        if path.is_file() && path.extension().is_some_and(|e| e == "md") {
             match Agent::load(path) {
                 Ok(agent) => agents.push(agent),
                 Err(e) => eprintln!("Warning: Failed to load agent at {}: {}", path.display(), e),

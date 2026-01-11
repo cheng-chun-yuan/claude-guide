@@ -40,7 +40,10 @@ impl Plugin {
     }
 }
 
-pub fn scan_plugins(plugins_dir: &Path, enabled_plugins: &HashMap<String, bool>) -> Result<Vec<Plugin>> {
+pub fn scan_plugins(
+    plugins_dir: &Path,
+    enabled_plugins: &HashMap<String, bool>,
+) -> Result<Vec<Plugin>> {
     let mut plugins = Vec::new();
     let marketplaces_dir = plugins_dir.join("marketplaces");
 
