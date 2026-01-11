@@ -3,7 +3,7 @@ use chrono::Utc;
 use console::style;
 use indicatif::{ProgressBar, ProgressStyle};
 
-use super::github::{clone_repo, parse_github_url};
+use super::github::{clone_repo, parse_github_url, validate_safe_name};
 use super::marketplace::{find_plugin, search_plugin};
 use super::registry::{InstalledItem, Registry};
 use crate::config::get_plugins_dir;
@@ -84,6 +84,9 @@ pub fn install_plugin_from_marketplace(name: &str) -> Result<String> {
 
     // Find the plugin in marketplaces
     let (marketplace_name, plugin_info, _marketplace_path) = find_plugin(name, None)?;
+
+    // Validate plugin name to prevent path traversal attacks
+    validate_safe_name(&plugin_info.name, "plugin name")?;
 
     pb.set_message(format!(
         "Found '{}' in marketplace '{}'",

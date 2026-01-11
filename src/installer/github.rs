@@ -2,6 +2,34 @@ use anyhow::{anyhow, Context, Result};
 use std::path::Path;
 use std::process::Command;
 
+/// Validate a name doesn't contain path traversal characters
+/// Returns an error if the name is empty, contains "..", or contains path separators
+pub fn validate_safe_name(name: &str, field_name: &str) -> Result<()> {
+    if name.is_empty() {
+        return Err(anyhow!("Invalid {}: name is empty", field_name));
+    }
+    if name == "." || name == ".." {
+        return Err(anyhow!(
+            "Invalid {}: '{}' is not allowed (path traversal)",
+            field_name,
+            name
+        ));
+    }
+    if name.contains("..") {
+        return Err(anyhow!(
+            "Invalid {}: contains '..' (path traversal not allowed)",
+            field_name
+        ));
+    }
+    if name.contains('/') || name.contains('\\') {
+        return Err(anyhow!(
+            "Invalid {}: contains path separator",
+            field_name
+        ));
+    }
+    Ok(())
+}
+
 /// Parse a GitHub URL into owner and repo name
 pub fn parse_github_url(url: &str) -> Result<(String, String)> {
     // Handle various GitHub URL formats:
@@ -21,13 +49,9 @@ pub fn parse_github_url(url: &str) -> Result<(String, String)> {
             let owner = parts[0].to_string();
             let repo = parts[1].to_string();
 
-            // Validate owner and repo are not empty to prevent directory traversal issues
-            if owner.is_empty() {
-                return Err(anyhow!("Invalid GitHub URL: owner is empty"));
-            }
-            if repo.is_empty() {
-                return Err(anyhow!("Invalid GitHub URL: repository name is empty"));
-            }
+            // Validate owner and repo for safety
+            validate_safe_name(&owner, "GitHub owner")?;
+            validate_safe_name(&repo, "GitHub repository")?;
 
             return Ok((owner, repo));
         }
@@ -43,13 +67,9 @@ pub fn parse_github_url(url: &str) -> Result<(String, String)> {
         let owner = parts[0].to_string();
         let repo = parts[1].to_string();
 
-        // Validate owner and repo are not empty to prevent directory traversal issues
-        if owner.is_empty() {
-            return Err(anyhow!("Invalid GitHub URL: owner is empty"));
-        }
-        if repo.is_empty() {
-            return Err(anyhow!("Invalid GitHub URL: repository name is empty"));
-        }
+        // Validate owner and repo for safety
+        validate_safe_name(&owner, "GitHub owner")?;
+        validate_safe_name(&repo, "GitHub repository")?;
 
         Ok((owner, repo))
     } else {
@@ -124,10 +144,7 @@ mod tests {
         // SSH URL with empty repo name should fail
         let result = parse_github_url("git@github.com:owner/");
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("repository name is empty"));
+        assert!(result.unwrap_err().to_string().contains("name is empty"));
     }
 
     #[test]
@@ -135,7 +152,7 @@ mod tests {
         // SSH URL with empty owner should fail
         let result = parse_github_url("git@github.com:/repo");
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("owner is empty"));
+        assert!(result.unwrap_err().to_string().contains("name is empty"));
     }
 
     #[test]
@@ -143,10 +160,7 @@ mod tests {
         // HTTPS URL with empty repo name should fail
         let result = parse_github_url("https://github.com/owner/");
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("repository name is empty"));
+        assert!(result.unwrap_err().to_string().contains("name is empty"));
     }
 
     #[test]
@@ -154,6 +168,43 @@ mod tests {
         // HTTPS URL with empty owner should fail
         let result = parse_github_url("https://github.com//repo");
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("owner is empty"));
+        assert!(result.unwrap_err().to_string().contains("name is empty"));
+    }
+
+    #[test]
+    fn test_parse_github_url_path_traversal_dotdot() {
+        // URL with ".." should fail
+        let result = parse_github_url("https://github.com/owner/..");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("path traversal"));
+    }
+
+    #[test]
+    fn test_parse_github_url_path_traversal_dot() {
+        // URL with single "." should fail
+        let result = parse_github_url("https://github.com/./repo");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("path traversal"));
+    }
+
+    #[test]
+    fn test_validate_safe_name() {
+        // Valid names should pass
+        assert!(validate_safe_name("valid-name", "test").is_ok());
+        assert!(validate_safe_name("valid_name", "test").is_ok());
+        assert!(validate_safe_name("valid.name", "test").is_ok());
+
+        // Empty should fail
+        assert!(validate_safe_name("", "test").is_err());
+
+        // Path traversal should fail
+        assert!(validate_safe_name("..", "test").is_err());
+        assert!(validate_safe_name(".", "test").is_err());
+        assert!(validate_safe_name("foo/..", "test").is_err());
+        assert!(validate_safe_name("../foo", "test").is_err());
+
+        // Path separators should fail
+        assert!(validate_safe_name("foo/bar", "test").is_err());
+        assert!(validate_safe_name("foo\\bar", "test").is_err());
     }
 }
