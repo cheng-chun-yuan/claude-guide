@@ -3,7 +3,7 @@ use chrono::Utc;
 use console::style;
 use indicatif::{ProgressBar, ProgressStyle};
 
-use super::github::{clone_repo, parse_github_url};
+use super::github::{clone_repo_validated, parse_github_url};
 use super::registry::{InstalledItem, Registry};
 use crate::config::get_skills_dir;
 
@@ -31,16 +31,16 @@ pub fn install_skill(url: &str) -> Result<String> {
     let skills_dir = get_skills_dir();
     let dest = skills_dir.join(&name);
 
-    clone_repo(url, &dest)?;
+    pb.set_message("Cloning and validating skill...");
 
-    pb.set_message("Validating skill...");
-
-    // Validate that it has a SKILL.md
-    let skill_md = dest.join("SKILL.md");
-    if !skill_md.exists() {
-        std::fs::remove_dir_all(&dest)?;
-        return Err(anyhow!("Invalid skill: missing SKILL.md"));
-    }
+    // Clone with validation - validates SKILL.md exists before replacing destination
+    clone_repo_validated(url, &dest, Some(|temp_dir: &std::path::Path| {
+        let skill_md = temp_dir.join("SKILL.md");
+        if !skill_md.exists() {
+            return Err(anyhow!("Invalid skill: missing SKILL.md"));
+        }
+        Ok(())
+    }))?;
 
     // Register in registry
     let mut registry = Registry::load()?;

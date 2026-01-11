@@ -5,7 +5,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-use super::github::{clone_repo, parse_github_url, pull_repo};
+use super::github::{clone_repo_validated, parse_github_url, pull_repo};
 use super::registry::{KnownMarketplace, KnownMarketplaces, MarketplaceSource};
 use crate::config::get_plugins_dir;
 
@@ -60,18 +60,18 @@ pub fn add_marketplace(url: &str) -> Result<String> {
     let marketplaces_dir = get_plugins_dir().join("marketplaces");
     let dest = marketplaces_dir.join(&name);
 
-    clone_repo(url, &dest)?;
+    pb.set_message("Cloning and validating marketplace...");
 
-    pb.set_message("Validating marketplace...");
-
-    // Validate that it has a marketplace.json
-    let manifest_path = dest.join(".claude-plugin").join("marketplace.json");
-    if !manifest_path.exists() {
-        std::fs::remove_dir_all(&dest)?;
-        return Err(anyhow!(
-            "Invalid marketplace: missing .claude-plugin/marketplace.json"
-        ));
-    }
+    // Clone with validation - validates marketplace.json exists before replacing destination
+    clone_repo_validated(url, &dest, Some(|temp_dir: &std::path::Path| {
+        let manifest_path = temp_dir.join(".claude-plugin").join("marketplace.json");
+        if !manifest_path.exists() {
+            return Err(anyhow!(
+                "Invalid marketplace: missing .claude-plugin/marketplace.json"
+            ));
+        }
+        Ok(())
+    }))?;
 
     // Read manifest to count plugins
     let manifest = load_marketplace_manifest(&dest)?;

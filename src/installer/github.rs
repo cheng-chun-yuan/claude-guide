@@ -31,6 +31,7 @@ pub fn validate_safe_name(name: &str, field_name: &str) -> Result<()> {
 }
 
 /// Parse a GitHub URL into owner and repo name
+/// Only accepts GitHub URLs - returns error for other hosts (GitLab, Bitbucket, etc.)
 pub fn parse_github_url(url: &str) -> Result<(String, String)> {
     // Handle various GitHub URL formats:
     // https://github.com/owner/repo
@@ -55,14 +56,24 @@ pub fn parse_github_url(url: &str) -> Result<(String, String)> {
 
             return Ok((owner, repo));
         }
+        return Err(anyhow!("Invalid GitHub SSH URL format: {}", url));
     }
 
-    // Handle HTTPS format
-    let url = url.strip_prefix("https://").unwrap_or(url);
-    let url = url.strip_prefix("http://").unwrap_or(url);
-    let url = url.strip_prefix("github.com/").unwrap_or(url);
+    // Handle HTTPS format - must contain github.com
+    let url_without_scheme = url.strip_prefix("https://").unwrap_or(url);
+    let url_without_scheme = url_without_scheme.strip_prefix("http://").unwrap_or(url_without_scheme);
 
-    let parts: Vec<&str> = url.split('/').collect();
+    // Validate this is actually a GitHub URL
+    if !url_without_scheme.starts_with("github.com/") {
+        return Err(anyhow!(
+            "Not a GitHub URL: {}. Only github.com URLs are supported.",
+            url
+        ));
+    }
+
+    let path = url_without_scheme.strip_prefix("github.com/").unwrap();
+    let parts: Vec<&str> = path.split('/').collect();
+
     if parts.len() >= 2 {
         let owner = parts[0].to_string();
         let repo = parts[1].to_string();
@@ -78,9 +89,16 @@ pub fn parse_github_url(url: &str) -> Result<(String, String)> {
 }
 
 /// Clone a GitHub repository to a destination directory using git
-/// Uses atomic replacement: clones to temp dir first, then replaces destination
-/// only on success. This prevents data loss if clone fails during reinstall.
-pub fn clone_repo(url: &str, dest: &Path) -> Result<()> {
+/// Uses atomic replacement: clones to temp dir first, validates, then replaces
+/// destination only on success. This prevents data loss if clone or validation fails.
+///
+/// The optional `validate` callback is called on the temp directory after cloning
+/// but before replacing the destination. If validation fails, the temp directory
+/// is cleaned up and the original destination is preserved.
+pub fn clone_repo_validated<F>(url: &str, dest: &Path, validate: Option<F>) -> Result<()>
+where
+    F: FnOnce(&Path) -> Result<()>,
+{
     // Ensure parent directory exists
     let parent = dest
         .parent()
@@ -114,7 +132,17 @@ pub fn clone_repo(url: &str, dest: &Path) -> Result<()> {
         return Err(anyhow!("Git clone failed: {}", stderr));
     }
 
-    // Clone succeeded - now safely replace the destination
+    // Run validation on temp directory BEFORE replacing destination
+    // This ensures we don't lose the original if validation fails
+    if let Some(validate_fn) = validate {
+        if let Err(e) = validate_fn(&temp_dest) {
+            // Validation failed - clean up temp and preserve original
+            let _ = std::fs::remove_dir_all(&temp_dest);
+            return Err(e);
+        }
+    }
+
+    // Clone and validation succeeded - now safely replace the destination
     // Remove old destination if it exists
     if dest.exists() {
         std::fs::remove_dir_all(dest)?;
@@ -124,14 +152,12 @@ pub fn clone_repo(url: &str, dest: &Path) -> Result<()> {
     std::fs::rename(&temp_dest, dest).with_context(|| {
         // If rename fails, try to clean up temp
         let _ = std::fs::remove_dir_all(&temp_dest);
-        format!(
-            "Failed to move cloned repository to {}",
-            dest.display()
-        )
+        format!("Failed to move cloned repository to {}", dest.display())
     })?;
 
     Ok(())
 }
+
 
 /// Pull latest changes for an existing git repository
 pub fn pull_repo(repo_path: &Path) -> Result<()> {
@@ -215,6 +241,24 @@ mod tests {
         let result = parse_github_url("https://github.com/./repo");
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("path traversal"));
+    }
+
+    #[test]
+    fn test_parse_github_url_rejects_non_github() {
+        // GitLab URLs should be rejected
+        let result = parse_github_url("https://gitlab.com/owner/repo");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Not a GitHub URL"));
+
+        // Bitbucket URLs should be rejected
+        let result = parse_github_url("https://bitbucket.org/owner/repo");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Not a GitHub URL"));
+
+        // Generic git URLs should be rejected
+        let result = parse_github_url("https://example.com/owner/repo");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Not a GitHub URL"));
     }
 
     #[test]

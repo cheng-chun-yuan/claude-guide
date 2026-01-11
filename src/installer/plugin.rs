@@ -3,7 +3,7 @@ use chrono::Utc;
 use console::style;
 use indicatif::{ProgressBar, ProgressStyle};
 
-use super::github::{clone_repo, parse_github_url, validate_safe_name};
+use super::github::{clone_repo_validated, parse_github_url, validate_safe_name};
 use super::marketplace::{find_plugin, search_plugin};
 use super::registry::{InstalledItem, Registry};
 use crate::config::get_plugins_dir;
@@ -34,18 +34,18 @@ pub fn install_plugin_from_url(url: &str) -> Result<String> {
     std::fs::create_dir_all(&cache_dir)?;
     let dest = cache_dir.join(&name);
 
-    clone_repo(url, &dest)?;
+    pb.set_message("Cloning and validating plugin...");
 
-    pb.set_message("Validating plugin...");
-
-    // Validate that it has a .claude-plugin/plugin.json
-    let plugin_json = dest.join(".claude-plugin").join("plugin.json");
-    if !plugin_json.exists() {
-        std::fs::remove_dir_all(&dest)?;
-        return Err(anyhow!(
-            "Invalid plugin: missing .claude-plugin/plugin.json"
-        ));
-    }
+    // Clone with validation - validates plugin.json exists before replacing destination
+    clone_repo_validated(url, &dest, Some(|temp_dir: &std::path::Path| {
+        let plugin_json = temp_dir.join(".claude-plugin").join("plugin.json");
+        if !plugin_json.exists() {
+            return Err(anyhow!(
+                "Invalid plugin: missing .claude-plugin/plugin.json"
+            ));
+        }
+        Ok(())
+    }))?;
 
     // Register in registry
     let mut registry = Registry::load()?;
@@ -107,18 +107,18 @@ pub fn install_plugin_from_marketplace(name: &str) -> Result<String> {
     std::fs::create_dir_all(&cache_dir)?;
     let dest = cache_dir.join(&plugin_info.name);
 
-    clone_repo(source_url, &dest)?;
+    pb.set_message("Cloning and validating plugin...");
 
-    pb.set_message("Validating plugin...");
-
-    // Validate that it has a .claude-plugin/plugin.json
-    let plugin_json = dest.join(".claude-plugin").join("plugin.json");
-    if !plugin_json.exists() {
-        std::fs::remove_dir_all(&dest)?;
-        return Err(anyhow!(
-            "Invalid plugin: missing .claude-plugin/plugin.json"
-        ));
-    }
+    // Clone with validation - validates plugin.json exists before replacing destination
+    clone_repo_validated(source_url, &dest, Some(|temp_dir: &std::path::Path| {
+        let plugin_json = temp_dir.join(".claude-plugin").join("plugin.json");
+        if !plugin_json.exists() {
+            return Err(anyhow!(
+                "Invalid plugin: missing .claude-plugin/plugin.json"
+            ));
+        }
+        Ok(())
+    }))?;
 
     // Register in registry
     let mut registry = Registry::load()?;
