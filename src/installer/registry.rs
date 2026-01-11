@@ -98,12 +98,6 @@ impl Registry {
             _ => &[],
         }
     }
-
-    /// Find an item by name
-    #[allow(dead_code)]
-    pub fn find(&self, item_type: &str, name: &str) -> Option<&InstalledItem> {
-        self.list(item_type).iter().find(|i| i.name == name)
-    }
 }
 
 /// Marketplace source information

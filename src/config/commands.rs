@@ -26,15 +26,6 @@ impl Command {
             content,
         })
     }
-
-    #[allow(dead_code)]
-    pub fn preview(&self, max_lines: usize) -> String {
-        self.content
-            .lines()
-            .take(max_lines)
-            .collect::<Vec<_>>()
-            .join("\n")
-    }
 }
 
 pub fn scan_commands(commands_dir: &Path) -> Result<Vec<Command>> {

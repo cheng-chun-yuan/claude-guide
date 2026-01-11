@@ -180,8 +180,6 @@ pub struct App {
     // Configuration
     pub settings: Settings,
     pub settings_path: PathBuf,
-    #[allow(dead_code)]
-    pub claude_dir: PathBuf,
 
     // Loaded data
     pub skills: Vec<Skill>,
@@ -192,7 +190,6 @@ pub struct App {
 
 impl App {
     pub fn new() -> Result<Self> {
-        let claude_dir = crate::config::get_claude_dir();
         let settings_path = crate::config::get_settings_path();
 
         let settings = Settings::load(&settings_path).unwrap_or_default();
@@ -209,7 +206,6 @@ impl App {
             unsaved_changes: false,
             settings,
             settings_path,
-            claude_dir,
             skills: Vec::new(),
             plugins: Vec::new(),
             commands: Vec::new(),

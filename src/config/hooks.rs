@@ -150,17 +150,4 @@ impl HooksConfig {
         }
         result
     }
-
-    #[allow(dead_code)]
-    pub fn total_count(&self) -> usize {
-        HookEvent::all()
-            .iter()
-            .map(|e| {
-                self.get_hook_groups(e)
-                    .iter()
-                    .map(|g| g.hooks.len())
-                    .sum::<usize>()
-            })
-            .sum()
-    }
 }

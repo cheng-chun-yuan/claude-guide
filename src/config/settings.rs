@@ -4,7 +4,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use super::{HooksConfig, McpServer, McpServersConfig};
+use super::{HooksConfig, McpServer};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,13 +54,6 @@ impl Settings {
             .with_context(|| format!("Failed to write {}", path.display()))?;
 
         Ok(())
-    }
-
-    #[allow(dead_code)]
-    pub fn mcp_servers_config(&self) -> McpServersConfig {
-        McpServersConfig {
-            servers: self.mcp_servers.clone(),
-        }
     }
 }
 

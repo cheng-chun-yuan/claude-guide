@@ -1,5 +1,4 @@
 use anyhow::{anyhow, Context, Result};
-use std::io::{self, Write};
 use std::path::Path;
 use std::process::Command;
 
@@ -79,93 +78,6 @@ pub fn clone_repo(url: &str, dest: &Path) -> Result<()> {
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(anyhow!("Git clone failed: {}", stderr));
-    }
-
-    Ok(())
-}
-
-/// Download a GitHub repository as a zip file and extract it
-#[allow(dead_code)]
-pub fn download_and_extract(owner: &str, repo: &str, dest: &Path) -> Result<()> {
-    let main_url = format!(
-        "https://github.com/{}/{}/archive/refs/heads/main.zip",
-        owner, repo
-    );
-
-    // Try main branch first, then master if main fails (including HTTP errors like 404)
-    let response = match reqwest::blocking::get(&main_url) {
-        Ok(resp) if resp.status().is_success() => resp,
-        Ok(_) | Err(_) => {
-            // main branch failed (HTTP error or network error), try master
-            let master_url = format!(
-                "https://github.com/{}/{}/archive/refs/heads/master.zip",
-                owner, repo
-            );
-            reqwest::blocking::get(&master_url)?
-        }
-    };
-
-    if !response.status().is_success() {
-        return Err(anyhow!(
-            "Failed to download repository: HTTP {}",
-            response.status()
-        ));
-    }
-
-    // Create temp file
-    let temp_dir = tempfile::tempdir()?;
-    let zip_path = temp_dir.path().join("repo.zip");
-
-    // Write zip to temp file
-    let bytes = response.bytes()?;
-    let mut file = std::fs::File::create(&zip_path)?;
-    file.write_all(&bytes)?;
-
-    // Extract zip
-    let file = std::fs::File::open(&zip_path)?;
-    let mut archive = zip::ZipArchive::new(file)?;
-
-    // Find the root directory name in the zip (usually repo-main or repo-master)
-    let root_dir = archive
-        .file_names()
-        .next()
-        .and_then(|n| n.split('/').next())
-        .map(|s| s.to_string())
-        .ok_or_else(|| anyhow!("Empty zip archive"))?;
-
-    // Ensure destination exists
-    std::fs::create_dir_all(dest)?;
-
-    // Extract files
-    for i in 0..archive.len() {
-        let mut file = archive.by_index(i)?;
-        let outpath = match file.enclosed_name() {
-            Some(path) => {
-                // Strip the root directory from the path
-                let path_str = path.to_string_lossy();
-                if let Some(stripped) = path_str.strip_prefix(&format!("{}/", root_dir)) {
-                    if stripped.is_empty() {
-                        continue;
-                    }
-                    dest.join(stripped)
-                } else {
-                    continue;
-                }
-            }
-            None => continue,
-        };
-
-        if file.name().ends_with('/') {
-            std::fs::create_dir_all(&outpath)?;
-        } else {
-            if let Some(p) = outpath.parent() {
-                if !p.exists() {
-                    std::fs::create_dir_all(p)?;
-                }
-            }
-            let mut outfile = std::fs::File::create(&outpath)?;
-            io::copy(&mut file, &mut outfile)?;
-        }
     }
 
     Ok(())
