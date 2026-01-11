@@ -30,7 +30,18 @@ pub fn parse_github_url(url: &str) -> Result<(String, String)> {
 
     let parts: Vec<&str> = url.split('/').collect();
     if parts.len() >= 2 {
-        Ok((parts[0].to_string(), parts[1].to_string()))
+        let owner = parts[0].to_string();
+        let repo = parts[1].to_string();
+
+        // Validate owner and repo are not empty to prevent directory traversal issues
+        if owner.is_empty() {
+            return Err(anyhow!("Invalid GitHub URL: owner is empty"));
+        }
+        if repo.is_empty() {
+            return Err(anyhow!("Invalid GitHub URL: repository name is empty"));
+        }
+
+        Ok((owner, repo))
     } else {
         Err(anyhow!("Invalid GitHub URL format: {}", url))
     }

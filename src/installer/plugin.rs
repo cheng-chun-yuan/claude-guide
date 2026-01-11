@@ -110,6 +110,17 @@ pub fn install_plugin_from_marketplace(name: &str) -> Result<String> {
 
     clone_repo(source_url, &dest)?;
 
+    pb.set_message("Validating plugin...");
+
+    // Validate that it has a .claude-plugin/plugin.json
+    let plugin_json = dest.join(".claude-plugin").join("plugin.json");
+    if !plugin_json.exists() {
+        std::fs::remove_dir_all(&dest)?;
+        return Err(anyhow!(
+            "Invalid plugin: missing .claude-plugin/plugin.json"
+        ));
+    }
+
     // Register in registry
     let mut registry = Registry::load()?;
     registry.add(

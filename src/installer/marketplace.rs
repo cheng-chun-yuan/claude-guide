@@ -104,13 +104,16 @@ pub fn add_marketplace(url: &str) -> Result<String> {
 
 /// Update a marketplace (or all if name is None)
 pub fn update_marketplace(name: Option<&str>) -> Result<()> {
-    let known = KnownMarketplaces::load()?;
+    let mut known = KnownMarketplaces::load()?;
 
     if let Some(name) = name {
         // Update specific marketplace
         let marketplace = known
+            .marketplaces
             .get(name)
             .ok_or_else(|| anyhow!("Marketplace '{}' not found", name))?;
+
+        let install_location = marketplace.install_location.clone();
 
         println!("{} Updating marketplace '{}'...", style("").cyan(), name);
 
@@ -122,7 +125,13 @@ pub fn update_marketplace(name: Option<&str>) -> Result<()> {
         );
         pb.set_message("Pulling latest changes...");
 
-        pull_repo(&marketplace.install_location)?;
+        pull_repo(&install_location)?;
+
+        // Update the last_updated timestamp
+        if let Some(mp) = known.marketplaces.get_mut(name) {
+            mp.last_updated = Utc::now();
+        }
+        known.save()?;
 
         pb.finish_with_message(format!(
             "{} Marketplace '{}' updated!",
