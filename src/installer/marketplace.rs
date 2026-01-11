@@ -43,7 +43,7 @@ pub fn add_marketplace(url: &str) -> Result<String> {
 
     println!(
         "{} Adding marketplace from {}/{}...",
-        style("").cyan(),
+        style("→").cyan(),
         owner,
         repo
     );
@@ -94,7 +94,7 @@ pub fn add_marketplace(url: &str) -> Result<String> {
 
     pb.finish_with_message(format!(
         "{} Marketplace '{}' added with {} plugins!",
-        style("").green(),
+        style("✓").green(),
         name,
         plugin_count
     ));
@@ -115,7 +115,7 @@ pub fn update_marketplace(name: Option<&str>) -> Result<()> {
 
         let install_location = marketplace.install_location.clone();
 
-        println!("{} Updating marketplace '{}'...", style("").cyan(), name);
+        println!("{} Updating marketplace '{}'...", style("→").cyan(), name);
 
         let pb = ProgressBar::new_spinner();
         pb.set_style(
@@ -135,7 +135,7 @@ pub fn update_marketplace(name: Option<&str>) -> Result<()> {
 
         pb.finish_with_message(format!(
             "{} Marketplace '{}' updated!",
-            style("").green(),
+            style("✓").green(),
             name
         ));
     } else {
@@ -149,7 +149,7 @@ pub fn update_marketplace(name: Option<&str>) -> Result<()> {
 
         println!(
             "{} Updating {} marketplace(s)...",
-            style("").cyan(),
+            style("→").cyan(),
             names.len()
         );
 
@@ -157,7 +157,7 @@ pub fn update_marketplace(name: Option<&str>) -> Result<()> {
 
         for name in &names {
             if let Err(e) = update_marketplace(Some(name)) {
-                println!("{} Failed to update '{}': {}", style("").red(), name, e);
+                println!("{} Failed to update '{}': {}", style("✗").red(), name, e);
                 failures.push((name.clone(), e.to_string()));
             }
         }
@@ -200,7 +200,7 @@ pub fn list_marketplaces() -> Result<()> {
 
         println!(
             "  {} {} ({} plugins)",
-            style("").green(),
+            style("•").green(),
             style(name).cyan().bold(),
             plugin_count
         );
@@ -230,7 +230,7 @@ pub fn remove_marketplace(name: &str) -> Result<()> {
 
     known.save()?;
 
-    println!("{} Marketplace '{}' removed.", style("").green(), name);
+    println!("{} Marketplace '{}' removed.", style("✓").green(), name);
 
     Ok(())
 }

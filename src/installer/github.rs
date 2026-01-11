@@ -149,10 +149,14 @@ where
     }
 
     // Move temp to final destination
+    // Note: Do NOT delete temp_dest on failure - preserve it for manual recovery
+    // since the original destination was already removed
     std::fs::rename(&temp_dest, dest).with_context(|| {
-        // If rename fails, try to clean up temp
-        let _ = std::fs::remove_dir_all(&temp_dest);
-        format!("Failed to move cloned repository to {}", dest.display())
+        format!(
+            "Failed to move cloned repository to {}. Data preserved at: {}",
+            dest.display(),
+            temp_dest.display()
+        )
     })?;
 
     Ok(())
