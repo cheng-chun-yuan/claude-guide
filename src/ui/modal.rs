@@ -3,7 +3,8 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph, Wrap},
 };
 
-use crate::app::{App, HookEvent, HookType, ModalType};
+use crate::app::{App, HookType, ModalType};
+use crate::config::HookEvent;
 
 pub fn render_modal(frame: &mut Frame, app: &App) {
     if let Some(modal) = &app.modal {
