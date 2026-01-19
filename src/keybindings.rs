@@ -40,11 +40,14 @@ fn map_normal_mode(key: KeyEvent) -> Option<Action> {
         KeyCode::Char('d') => Some(Action::Delete),
         KeyCode::Char(' ') => Some(Action::Toggle),
 
-        // Save with Ctrl+S
-        KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => Some(Action::Save),
+        // Save with 's' or Ctrl+S
+        KeyCode::Char('s') => Some(Action::Save),
 
         // Application
         KeyCode::Char('?') => Some(Action::ShowHelp),
+        KeyCode::Char('p') => Some(Action::ChangePlatform),
+        KeyCode::Char('v') => Some(Action::ManageVersions),
+        KeyCode::Char('t') => Some(Action::ToggleScope),
         KeyCode::Char('q') => Some(Action::Quit),
         KeyCode::Char('Q') => Some(Action::ForceQuit),
         KeyCode::Char('r') => Some(Action::Refresh),
@@ -78,6 +81,7 @@ fn map_modal_mode(key: KeyEvent) -> Option<Action> {
         KeyCode::Esc | KeyCode::Char('n') => Some(Action::Dismiss),
         KeyCode::Char('j') | KeyCode::Down => Some(Action::MoveDown),
         KeyCode::Char('k') | KeyCode::Up => Some(Action::MoveUp),
+        KeyCode::Char('d') => Some(Action::Delete),
         _ => None,
     }
 }
@@ -91,7 +95,11 @@ pub fn get_keybinding_hints(mode: &InputMode) -> Vec<(&'static str, &'static str
             ("a", "Add"),
             ("e", "Edit"),
             ("d", "Delete"),
+            ("s", "Save"),
             ("?", "Help"),
+            ("p", "Platform"),
+            ("t", "Scope"),
+            ("v", "Versions"),
             ("q", "Quit"),
         ],
         InputMode::Insert => vec![("Esc", "Cancel"), ("Enter", "Confirm"), ("Ctrl+S", "Save")],

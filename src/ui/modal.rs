@@ -4,7 +4,35 @@ use ratatui::{
 };
 
 use crate::app::{App, HookType, ModalType};
-use crate::config::HookEvent;
+use crate::config::{AgentType, HookEvent, PRESET_MCP_SERVERS};
+use crate::version::SkillVersion;
+
+/// Returns a highlighted style if selected, otherwise a default white style
+fn field_style(is_selected: bool) -> Style {
+    match is_selected {
+        true => Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD),
+        false => Style::default().fg(Color::White),
+    }
+}
+
+/// Returns a cursor span if the field is selected, otherwise an empty span
+fn cursor_span(is_selected: bool) -> Span<'static> {
+    match is_selected {
+        true => Span::styled("_", Style::default().fg(Color::Yellow)),
+        false => Span::raw(""),
+    }
+}
+
+/// Returns the value or a placeholder if empty
+fn display_or_placeholder<'a>(value: &'a str, placeholder: &'a str) -> &'a str {
+    if value.is_empty() {
+        placeholder
+    } else {
+        value
+    }
+}
 
 pub fn render_modal(frame: &mut Frame, app: &App) {
     if let Some(modal) = &app.modal {
@@ -33,12 +61,28 @@ pub fn render_modal(frame: &mut Frame, app: &App) {
             ModalType::AddAgent { name } => {
                 render_simple_input_modal(frame, area, "Add Agent", "Name:", name);
             }
+            ModalType::AddProfile { name } => {
+                render_simple_input_modal(frame, area, "Create Profile", "Name:", name);
+            }
             ModalType::AddMcp {
                 name,
                 command,
                 args,
             } => {
                 render_add_mcp_modal(frame, area, name, command, args, app.modal_index);
+            }
+            ModalType::SelectMcpPreset { selected_index } => {
+                render_select_mcp_preset_modal(frame, area, *selected_index);
+            }
+            ModalType::ChangePlatform { selected_index } => {
+                render_change_platform_modal(frame, area, *selected_index);
+            }
+            ModalType::ManageVersions {
+                skill_name,
+                versions,
+                selected_index,
+            } => {
+                render_manage_versions_modal(frame, area, skill_name, versions, *selected_index);
             }
             ModalType::Help => {
                 render_help_modal(frame, area);
@@ -87,35 +131,13 @@ fn render_add_hook_modal(
     target: &str,
     selected_field: usize,
 ) {
-    let event_style = if selected_field == 0 {
-        Style::default()
-            .fg(Color::Yellow)
-            .add_modifier(Modifier::BOLD)
-    } else {
-        Style::default().fg(Color::White)
-    };
-
-    let type_style = if selected_field == 1 {
-        Style::default()
-            .fg(Color::Yellow)
-            .add_modifier(Modifier::BOLD)
-    } else {
-        Style::default().fg(Color::White)
-    };
-
-    let target_style = if selected_field == 2 {
-        Style::default()
-            .fg(Color::Yellow)
-            .add_modifier(Modifier::BOLD)
-    } else {
-        Style::default().fg(Color::White)
-    };
+    let target_display = display_or_placeholder(target, "<enter value>");
 
     let content = vec![
         Line::from(""),
         Line::from(vec![
             Span::styled("Event: ", Style::default().fg(Color::Cyan)),
-            Span::styled(format!("< {} >", event), event_style),
+            Span::styled(format!("< {} >", event), field_style(selected_field == 0)),
         ]),
         Line::from(Span::styled(
             "(j/k to change)",
@@ -124,7 +146,10 @@ fn render_add_hook_modal(
         Line::from(""),
         Line::from(vec![
             Span::styled("Type: ", Style::default().fg(Color::Cyan)),
-            Span::styled(format!("< {} >", hook_type.as_str()), type_style),
+            Span::styled(
+                format!("< {} >", hook_type.as_str()),
+                field_style(selected_field == 1),
+            ),
         ]),
         Line::from(Span::styled(
             "(Space to toggle)",
@@ -133,19 +158,8 @@ fn render_add_hook_modal(
         Line::from(""),
         Line::from(vec![
             Span::styled("Target: ", Style::default().fg(Color::Cyan)),
-            Span::styled(
-                if target.is_empty() {
-                    "<enter value>"
-                } else {
-                    target
-                },
-                target_style,
-            ),
-            if selected_field == 2 {
-                Span::styled("_", Style::default().fg(Color::Yellow))
-            } else {
-                Span::raw("")
-            },
+            Span::styled(target_display, field_style(selected_field == 2)),
+            cursor_span(selected_field == 2),
         ]),
         Line::from(""),
         Line::from(""),
@@ -177,18 +191,12 @@ fn render_add_hook_modal(
 }
 
 fn render_simple_input_modal(frame: &mut Frame, area: Rect, title: &str, label: &str, value: &str) {
+    let display_value = display_or_placeholder(value, "<enter name>");
     let content = vec![
         Line::from(""),
         Line::from(vec![
             Span::styled(format!("{} ", label), Style::default().fg(Color::Cyan)),
-            Span::styled(
-                if value.is_empty() {
-                    "<enter name>"
-                } else {
-                    value
-                },
-                Style::default().fg(Color::White),
-            ),
+            Span::styled(display_value, Style::default().fg(Color::White)),
             Span::styled("_", Style::default().fg(Color::Yellow)),
         ]),
         Line::from(""),
@@ -227,77 +235,28 @@ fn render_add_mcp_modal(
     args: &str,
     selected_field: usize,
 ) {
-    let name_style = if selected_field == 0 {
-        Style::default()
-            .fg(Color::Yellow)
-            .add_modifier(Modifier::BOLD)
-    } else {
-        Style::default().fg(Color::White)
-    };
-
-    let command_style = if selected_field == 1 {
-        Style::default()
-            .fg(Color::Yellow)
-            .add_modifier(Modifier::BOLD)
-    } else {
-        Style::default().fg(Color::White)
-    };
-
-    let args_style = if selected_field == 2 {
-        Style::default()
-            .fg(Color::Yellow)
-            .add_modifier(Modifier::BOLD)
-    } else {
-        Style::default().fg(Color::White)
-    };
-
-    let cursor = |idx: usize| {
-        if selected_field == idx {
-            Span::styled("_", Style::default().fg(Color::Yellow))
-        } else {
-            Span::raw("")
-        }
-    };
+    let name_display = display_or_placeholder(name, "<server name>");
+    let command_display = display_or_placeholder(command, "<command>");
+    let args_display = display_or_placeholder(args, "<space separated>");
 
     let content = vec![
         Line::from(""),
         Line::from(vec![
             Span::styled("Name: ", Style::default().fg(Color::Cyan)),
-            Span::styled(
-                if name.is_empty() {
-                    "<server name>"
-                } else {
-                    name
-                },
-                name_style,
-            ),
-            cursor(0),
+            Span::styled(name_display, field_style(selected_field == 0)),
+            cursor_span(selected_field == 0),
         ]),
         Line::from(""),
         Line::from(vec![
             Span::styled("Command: ", Style::default().fg(Color::Cyan)),
-            Span::styled(
-                if command.is_empty() {
-                    "<command>"
-                } else {
-                    command
-                },
-                command_style,
-            ),
-            cursor(1),
+            Span::styled(command_display, field_style(selected_field == 1)),
+            cursor_span(selected_field == 1),
         ]),
         Line::from(""),
         Line::from(vec![
             Span::styled("Args: ", Style::default().fg(Color::Cyan)),
-            Span::styled(
-                if args.is_empty() {
-                    "<space separated>"
-                } else {
-                    args
-                },
-                args_style,
-            ),
-            cursor(2),
+            Span::styled(args_display, field_style(selected_field == 2)),
+            cursor_span(selected_field == 2),
         ]),
         Line::from(""),
         Line::from(""),
@@ -326,6 +285,207 @@ fn render_add_mcp_modal(
         .wrap(Wrap { trim: false });
 
     frame.render_widget(paragraph, area);
+}
+
+fn render_select_mcp_preset_modal(frame: &mut Frame, _area: Rect, selected_index: usize) {
+    let larger_area = centered_rect(70, 80, frame.area());
+    frame.render_widget(Clear, larger_area);
+
+    let mut content = vec![
+        Line::from(""),
+        Line::from(Span::styled(
+            "Select an MCP Server to install:",
+            Style::default().fg(Color::Cyan),
+        )),
+        Line::from(""),
+    ];
+
+    // Add preset servers
+    for (i, preset) in PRESET_MCP_SERVERS.iter().enumerate() {
+        let is_selected = i == selected_index;
+        let prefix = if is_selected { "> " } else { "  " };
+        let style = field_style(is_selected);
+
+        content.push(Line::from(vec![
+            Span::styled(prefix, style),
+            Span::styled(preset.name, style),
+            Span::styled(" - ", Style::default().fg(Color::DarkGray)),
+            Span::styled(preset.description, Style::default().fg(Color::DarkGray)),
+        ]));
+    }
+
+    // Add "Custom..." option
+    let is_custom_selected = selected_index == PRESET_MCP_SERVERS.len();
+    let prefix = if is_custom_selected { "> " } else { "  " };
+    let style = field_style(is_custom_selected);
+
+    content.push(Line::from(""));
+    content.push(Line::from(vec![
+        Span::styled(prefix, style),
+        Span::styled("Custom...", style),
+        Span::styled(
+            " - Enter custom MCP server details",
+            Style::default().fg(Color::DarkGray),
+        ),
+    ]));
+
+    content.push(Line::from(""));
+    content.push(Line::from(""));
+    content.push(Line::from(vec![
+        Span::styled("[j/k]", Style::default().fg(Color::Green)),
+        Span::raw(" Navigate  "),
+        Span::styled("[Enter]", Style::default().fg(Color::Green)),
+        Span::raw(" Select  "),
+        Span::styled("[Esc]", Style::default().fg(Color::Red)),
+        Span::raw(" Cancel"),
+    ]));
+
+    let paragraph = Paragraph::new(content)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Yellow))
+                .title(" Add MCP Server ")
+                .title_style(
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                ),
+        )
+        .wrap(Wrap { trim: false });
+
+    frame.render_widget(paragraph, larger_area);
+}
+
+fn render_change_platform_modal(frame: &mut Frame, _area: Rect, selected_index: usize) {
+    let larger_area = centered_rect(60, 60, frame.area());
+    frame.render_widget(Clear, larger_area);
+
+    let mut content = vec![
+        Line::from(""),
+        Line::from(Span::styled(
+            "Select Agent Platform:",
+            Style::default().fg(Color::Cyan),
+        )),
+        Line::from(""),
+    ];
+
+    for (i, agent) in AgentType::all().iter().enumerate() {
+        let is_selected = i == selected_index;
+        let prefix = if is_selected { "> " } else { "  " };
+        let style = field_style(is_selected);
+
+        content.push(Line::from(vec![
+            Span::styled(prefix, style),
+            Span::styled(agent.display_name(), style),
+            Span::styled(" - ", Style::default().fg(Color::DarkGray)),
+            Span::styled(agent.short_name(), Style::default().fg(Color::DarkGray)),
+        ]));
+    }
+
+    content.push(Line::from(""));
+    content.push(Line::from(""));
+    content.push(Line::from(vec![
+        Span::styled("[j/k]", Style::default().fg(Color::Green)),
+        Span::raw(" Navigate  "),
+        Span::styled("[Enter]", Style::default().fg(Color::Green)),
+        Span::raw(" Select  "),
+        Span::styled("[Esc]", Style::default().fg(Color::Red)),
+        Span::raw(" Cancel"),
+    ]));
+
+    let paragraph = Paragraph::new(content)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Yellow))
+                .title(" Switch Platform ")
+                .title_style(
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                ),
+        )
+        .wrap(Wrap { trim: false });
+
+    frame.render_widget(paragraph, larger_area);
+}
+
+fn render_manage_versions_modal(
+    frame: &mut Frame,
+    _area: Rect,
+    skill_name: &str,
+    versions: &[SkillVersion],
+    selected_index: usize,
+) {
+    let larger_area = centered_rect(70, 70, frame.area());
+    frame.render_widget(Clear, larger_area);
+
+    let mut content = vec![
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("Versions for ", Style::default().fg(Color::Cyan)),
+            Span::styled(
+                skill_name,
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ),
+        ]),
+        Line::from(""),
+    ];
+
+    if versions.is_empty() {
+        content.push(Line::from(Span::styled(
+            "No versions found.",
+            Style::default().fg(Color::DarkGray),
+        )));
+    } else {
+        for (i, version) in versions.iter().enumerate() {
+            let is_selected = i == selected_index;
+            let prefix = if is_selected { "> " } else { "  " };
+            let style = field_style(is_selected);
+
+            content.push(Line::from(vec![
+                Span::styled(prefix, style),
+                Span::styled(format!("v{}", version.version), style),
+                Span::styled(" - ", Style::default().fg(Color::DarkGray)),
+                Span::styled(
+                    version.installed_at.format("%Y-%m-%d %H:%M").to_string(),
+                    Style::default().fg(Color::DarkGray),
+                ),
+            ]));
+        }
+    }
+
+    content.push(Line::from(""));
+    content.push(Line::from(""));
+    content.push(Line::from(vec![
+        Span::styled("[j/k]", Style::default().fg(Color::Green)),
+        Span::raw(" Navigate  "),
+        Span::styled("[Enter]", Style::default().fg(Color::Green)),
+        Span::raw(" Switch  "),
+        Span::styled("[d]", Style::default().fg(Color::Red)),
+        Span::raw(" Delete  "),
+        Span::styled("[Esc]", Style::default().fg(Color::Red)),
+        Span::raw(" Close"),
+    ]));
+
+    let paragraph = Paragraph::new(content)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Yellow))
+                .title(" Manage Versions ")
+                .title_style(
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                ),
+        )
+        .wrap(Wrap { trim: false });
+
+    frame.render_widget(paragraph, larger_area);
 }
 
 fn render_help_modal(frame: &mut Frame, area: Rect) {
@@ -388,7 +548,7 @@ fn render_help_modal(frame: &mut Frame, area: Rect) {
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(vec![
-            Span::styled("  Ctrl+S  ", Style::default().fg(Color::Yellow)),
+            Span::styled("  s       ", Style::default().fg(Color::Yellow)),
             Span::raw("Save settings"),
         ]),
         Line::from(vec![

@@ -23,6 +23,9 @@ pub enum Action {
 
     // Application
     ShowHelp,
+    ChangePlatform,
+    ManageVersions,
+    ToggleScope,
     Quit,
     ForceQuit,
     Refresh,

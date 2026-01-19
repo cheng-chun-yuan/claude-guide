@@ -86,6 +86,25 @@ claude-guide marketplace update <name>
 claude-guide marketplace remove <name>
 ```
 
+#### Manage Versions & Profiles
+
+```bash
+# Create a profile from current skills
+claude-guide version create mobile --description "Mobile app development skills"
+
+# Export profile to a local project (for opencode, claude, etc.)
+claude-guide version export mobile ./my-mobile-app --platform opencode
+
+# List saved profiles
+claude-guide version profiles
+
+# Show profile details
+claude-guide version show mobile
+
+# Delete a profile
+claude-guide version delete mobile
+```
+
 ## Popular Skills & Resources
 
 ### Skills
@@ -159,15 +178,37 @@ Popular MCP (Model Context Protocol) servers to enhance Claude Code:
 | `j/k` | Navigate up/down |
 | `h/l` | Switch focus left/right |
 | `Tab` | Next tab |
-| `1-6` | Jump to tab |
-| `a` | Add new item |
+| `1-7` | Jump to tab (Hooks, Skills, Plugins, Commands, Agents, MCP, Profiles) |
+| `a` | Add new item / Create Profile |
 | `e` | Edit selected item |
-| `d` | Delete selected item |
+| `d` | Delete item / Delete Version |
 | `Space` | Toggle (plugins) |
+| `p` | **Switch Platform** (Claude, OpenCode, Gemini, etc.) |
+| `t` | **Toggle Scope** (Global User vs Local Project) |
+| `v` | **Manage Versions** (for Skills) |
+| `Enter` | Select / Apply Profile / Switch Version |
 | `r` | Refresh |
 | `Ctrl+S` | Save settings |
 | `?` | Show help |
 | `q` | Quit |
+
+## Project Management Workflow
+
+**claude-guide** now supports multi-platform and multi-project management directly from the TUI:
+
+1.  **Platform Switching (`p`)**:
+    Switch the active agent context. Manage skills for `.claude`, `.opencode`, `.cursor`, etc., independently.
+
+2.  **Scope Toggling (`t`)**:
+    Switch between **Global** (User-level) and **Local** (Current Directory) configuration. Perfect for project-specific setups.
+
+3.  **Profiles**:
+    Create named stacks of skills (e.g., "Mobile Dev", "Rust Backend").
+    - **Create**: Snapshot your current skills into a profile.
+    - **Apply**: Deploy a profile to your current scope and platform.
+
+4.  **Version Control (`v`)**:
+    Manage multiple versions of skills. Rollback to previous versions safely with full file backups.
 
 ## Configuration Files
 

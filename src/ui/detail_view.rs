@@ -256,5 +256,57 @@ fn format_item_detail(item: &ListItem) -> Vec<Line<'static>> {
 
             lines
         }
+        ListItem::Profile(profile) => {
+            let mut lines = vec![
+                Line::from(vec![
+                    Span::styled("Profile: ", Style::default().fg(Color::Cyan)),
+                    Span::styled(profile.name.clone(), Style::default().fg(Color::White)),
+                ]),
+                Line::from(vec![
+                    Span::styled("Platform: ", Style::default().fg(Color::Cyan)),
+                    Span::styled(
+                        profile.platform.display_name(),
+                        Style::default().fg(Color::Yellow),
+                    ),
+                ]),
+                Line::from(vec![
+                    Span::styled("Created: ", Style::default().fg(Color::Cyan)),
+                    Span::styled(
+                        profile.created_at.format("%Y-%m-%d %H:%M").to_string(),
+                        Style::default().fg(Color::White),
+                    ),
+                ]),
+            ];
+
+            if let Some(desc) = &profile.description {
+                lines.push(Line::from(""));
+                lines.push(Line::from(Span::styled(
+                    desc.clone(),
+                    Style::default().fg(Color::Gray),
+                )));
+            }
+
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(
+                format!("Skills ({}):", profile.skills.len()),
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )));
+
+            for skill in &profile.skills {
+                lines.push(Line::from(vec![
+                    Span::styled("  • ", Style::default().fg(Color::Green)),
+                    Span::styled(skill.name.clone(), Style::default().fg(Color::White)),
+                    if let Some(v) = &skill.version {
+                        Span::styled(format!(" [v{}]", v), Style::default().fg(Color::DarkGray))
+                    } else {
+                        Span::raw("")
+                    },
+                ]));
+            }
+
+            lines
+        }
     }
 }

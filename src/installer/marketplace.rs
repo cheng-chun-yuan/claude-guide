@@ -3,13 +3,12 @@ use chrono::Utc;
 use console::style;
 use indicatif::{ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use super::github::{clone_repo_validated, parse_github_url, pull_repo};
 use super::registry::{KnownMarketplace, KnownMarketplaces, MarketplaceSource};
 use crate::config::get_plugins_dir;
 
-/// Plugin information from marketplace manifest
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PluginInfo {
     pub name: String,
@@ -27,7 +26,6 @@ pub struct PluginInfo {
     pub skills: Option<Vec<String>>,
 }
 
-/// Marketplace manifest structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MarketplaceManifest {
     #[serde(default)]
@@ -36,7 +34,6 @@ pub struct MarketplaceManifest {
     pub plugins: Vec<PluginInfo>,
 }
 
-/// Add a new marketplace from a GitHub URL
 pub fn add_marketplace(url: &str) -> Result<String> {
     let (owner, repo) = parse_github_url(url)?;
     let name = repo.clone();
@@ -56,28 +53,28 @@ pub fn add_marketplace(url: &str) -> Result<String> {
     );
     pb.set_message("Cloning repository...");
 
-    // Clone to marketplaces directory
     let marketplaces_dir = get_plugins_dir().join("marketplaces");
     let dest = marketplaces_dir.join(&name);
 
     pb.set_message("Cloning and validating marketplace...");
 
-    // Clone with validation - validates marketplace.json exists before replacing destination
-    clone_repo_validated(url, &dest, Some(|temp_dir: &std::path::Path| {
-        let manifest_path = temp_dir.join(".claude-plugin").join("marketplace.json");
-        if !manifest_path.exists() {
-            return Err(anyhow!(
-                "Invalid marketplace: missing .claude-plugin/marketplace.json"
-            ));
-        }
-        Ok(())
-    }))?;
+    clone_repo_validated(
+        url,
+        &dest,
+        Some(|temp_dir: &std::path::Path| {
+            let manifest_path = temp_dir.join(".claude-plugin").join("marketplace.json");
+            if !manifest_path.exists() {
+                return Err(anyhow!(
+                    "Invalid marketplace: missing .claude-plugin/marketplace.json"
+                ));
+            }
+            Ok(())
+        }),
+    )?;
 
-    // Read manifest to count plugins
     let manifest = load_marketplace_manifest(&dest)?;
     let plugin_count = manifest.plugins.len();
 
-    // Register in known_marketplaces.json
     let mut known = KnownMarketplaces::load()?;
     known.add(
         name.clone(),
@@ -102,12 +99,10 @@ pub fn add_marketplace(url: &str) -> Result<String> {
     Ok(name)
 }
 
-/// Update a marketplace (or all if name is None)
 pub fn update_marketplace(name: Option<&str>) -> Result<()> {
     let mut known = KnownMarketplaces::load()?;
 
     if let Some(name) = name {
-        // Update specific marketplace
         let marketplace = known
             .marketplaces
             .get(name)
@@ -127,7 +122,6 @@ pub fn update_marketplace(name: Option<&str>) -> Result<()> {
 
         pull_repo(&install_location)?;
 
-        // Update the last_updated timestamp
         if let Some(mp) = known.marketplaces.get_mut(name) {
             mp.last_updated = Utc::now();
         }
@@ -139,7 +133,6 @@ pub fn update_marketplace(name: Option<&str>) -> Result<()> {
             name
         ));
     } else {
-        // Update all marketplaces
         let names: Vec<String> = known.names().iter().map(|s| s.to_string()).collect();
 
         if names.is_empty() {
@@ -162,7 +155,6 @@ pub fn update_marketplace(name: Option<&str>) -> Result<()> {
             }
         }
 
-        // Return error if any updates failed
         if !failures.is_empty() {
             let failed_names: Vec<&str> = failures.iter().map(|(n, _)| n.as_str()).collect();
             return Err(anyhow!(
@@ -177,7 +169,6 @@ pub fn update_marketplace(name: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-/// List all registered marketplaces
 pub fn list_marketplaces() -> Result<()> {
     let known = KnownMarketplaces::load()?;
 
@@ -215,15 +206,18 @@ pub fn list_marketplaces() -> Result<()> {
     Ok(())
 }
 
-/// Remove a marketplace
-pub fn remove_marketplace(name: &str) -> Result<()> {
+pub fn remove_marketplace(name: &str, choose: bool) -> Result<()> {
     let mut known = KnownMarketplaces::load()?;
 
     let marketplace = known
         .remove(name)
         .ok_or_else(|| anyhow!("Marketplace '{}' not found", name))?;
 
-    // Remove the directory
+    if choose {
+        show_marketplace_details(&marketplace)?;
+        confirm_removal(name, "marketplace")?;
+    }
+
     if marketplace.install_location.exists() {
         std::fs::remove_dir_all(&marketplace.install_location)?;
     }
@@ -235,7 +229,37 @@ pub fn remove_marketplace(name: &str) -> Result<()> {
     Ok(())
 }
 
-/// Load marketplace manifest from a directory
+fn show_marketplace_details(marketplace: &KnownMarketplace) -> Result<()> {
+    println!();
+    println!("{}", style("Marketplace Details:").bold().underlined());
+    println!("  Source:    {}", marketplace.source.repo);
+    println!("  Path:      {}", marketplace.install_location.display());
+    println!(
+        "  Updated:   {}",
+        marketplace.last_updated.format("%Y-%m-%d %H:%M")
+    );
+    Ok(())
+}
+
+fn confirm_removal(name: &str, item_type: &str) -> Result<()> {
+    print!(
+        "{} Are you sure you want to remove {} '{}'? [y/N]: ",
+        style("?").yellow(),
+        item_type,
+        name
+    );
+
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
+
+    let confirmation = input.trim().to_lowercase();
+    if confirmation == "y" || confirmation == "yes" {
+        Ok(())
+    } else {
+        Err(anyhow!("Removal cancelled"))
+    }
+}
+
 pub fn load_marketplace_manifest(marketplace_dir: &Path) -> Result<MarketplaceManifest> {
     let manifest_path = marketplace_dir
         .join(".claude-plugin")
@@ -246,83 +270,4 @@ pub fn load_marketplace_manifest(marketplace_dir: &Path) -> Result<MarketplaceMa
 
     serde_json::from_str(&content)
         .with_context(|| format!("Failed to parse {}", manifest_path.display()))
-}
-
-/// Search for a plugin across all marketplaces
-pub fn search_plugin(query: &str) -> Result<Vec<(String, PluginInfo)>> {
-    let known = KnownMarketplaces::load()?;
-    let mut results = Vec::new();
-    let query_lower = query.to_lowercase();
-
-    // Sort marketplace names for deterministic iteration order
-    let mut marketplace_names: Vec<&String> = known.marketplaces.keys().collect();
-    marketplace_names.sort();
-
-    for marketplace_name in marketplace_names {
-        let marketplace = &known.marketplaces[marketplace_name];
-        if let Ok(manifest) = load_marketplace_manifest(&marketplace.install_location) {
-            for plugin in manifest.plugins {
-                let name_match = plugin.name.to_lowercase().contains(&query_lower);
-                let desc_match = plugin
-                    .description
-                    .as_ref()
-                    .map(|d| d.to_lowercase().contains(&query_lower))
-                    .unwrap_or(false);
-
-                if name_match || desc_match {
-                    results.push((marketplace_name.clone(), plugin));
-                }
-            }
-        }
-    }
-
-    // Sort results by marketplace name, then plugin name for consistent output
-    results.sort_by(|a, b| (&a.0, &a.1.name).cmp(&(&b.0, &b.1.name)));
-
-    Ok(results)
-}
-
-/// Find a plugin by name, optionally from a specific marketplace
-pub fn find_plugin(name: &str, marketplace: Option<&str>) -> Result<(String, PluginInfo, PathBuf)> {
-    let known = KnownMarketplaces::load()?;
-
-    // Parse name@marketplace format
-    let (plugin_name, marketplace_name) = if name.contains('@') {
-        let parts: Vec<&str> = name.split('@').collect();
-        (parts[0], Some(parts[1]))
-    } else {
-        (name, marketplace)
-    };
-
-    // Build list of marketplaces to search
-    // Sort by name for deterministic order when searching multiple marketplaces
-    let mut marketplaces_to_search: Vec<(String, &KnownMarketplace)> =
-        if let Some(mp) = marketplace_name {
-            known
-                .get(mp)
-                .map(|m| vec![(mp.to_string(), m)])
-                .ok_or_else(|| anyhow!("Marketplace '{}' not found", mp))?
-        } else {
-            known
-                .marketplaces
-                .iter()
-                .map(|(k, v)| (k.clone(), v))
-                .collect()
-        };
-    marketplaces_to_search.sort_by(|a, b| a.0.cmp(&b.0));
-
-    for (mp_name, marketplace) in marketplaces_to_search {
-        if let Ok(manifest) = load_marketplace_manifest(&marketplace.install_location) {
-            for plugin in manifest.plugins {
-                if plugin.name == plugin_name {
-                    return Ok((mp_name, plugin, marketplace.install_location.clone()));
-                }
-            }
-        }
-    }
-
-    Err(anyhow!(
-        "Plugin '{}' not found in any marketplace",
-        plugin_name
-    ))
 }

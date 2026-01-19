@@ -4,6 +4,7 @@ use ratatui::{
 };
 
 use crate::app::{App, Tab};
+use crate::config::skills::InstallScope;
 
 pub fn render_tabs(frame: &mut Frame, area: Rect, app: &App) {
     let titles: Vec<Line> = Tab::all()
@@ -20,11 +21,22 @@ pub fn render_tabs(frame: &mut Frame, area: Rect, app: &App) {
         })
         .collect();
 
+    let scope_str = match app.current_scope {
+        InstallScope::Global => "Global",
+        InstallScope::Local => "Local",
+    };
+
+    let title = format!(
+        " Claude Guide [{}: {}] ",
+        app.current_platform.display_name(),
+        scope_str
+    );
+
     let tabs = Tabs::new(titles)
         .block(
             Block::default()
                 .borders(Borders::BOTTOM)
-                .title(" Claude Guide ")
+                .title(title)
                 .title_style(
                     Style::default()
                         .fg(Color::Cyan)

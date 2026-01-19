@@ -54,7 +54,7 @@ pub enum HookAction {
     #[serde(rename = "command")]
     Command {
         command: String,
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         timeout: Option<u64>,
     },
     #[serde(rename = "url")]

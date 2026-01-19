@@ -63,6 +63,10 @@ pub fn get_claude_dir() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from(".claude"))
 }
 
+pub fn get_config_dir() -> PathBuf {
+    get_claude_dir()
+}
+
 pub fn get_settings_path() -> PathBuf {
     get_claude_dir().join("settings.json")
 }

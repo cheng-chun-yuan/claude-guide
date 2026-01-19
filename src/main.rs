@@ -5,7 +5,9 @@ mod config;
 mod event;
 mod installer;
 mod keybindings;
+mod services;
 mod ui;
+mod version;
 
 use anyhow::Result;
 use clap::Parser;
@@ -144,7 +146,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> 
                     app.handle_action(action)?;
                 }
             }
-            Event::Resize(_, _) => {
+            Event::Resize => {
                 // Terminal will redraw on next iteration
             }
             Event::Tick => {

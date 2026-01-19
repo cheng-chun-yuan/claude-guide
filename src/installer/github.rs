@@ -22,10 +22,7 @@ pub fn validate_safe_name(name: &str, field_name: &str) -> Result<()> {
         ));
     }
     if name.contains('/') || name.contains('\\') {
-        return Err(anyhow!(
-            "Invalid {}: contains path separator",
-            field_name
-        ));
+        return Err(anyhow!("Invalid {}: contains path separator", field_name));
     }
     Ok(())
 }
@@ -61,7 +58,9 @@ pub fn parse_github_url(url: &str) -> Result<(String, String)> {
 
     // Handle HTTPS format - must contain github.com
     let url_without_scheme = url.strip_prefix("https://").unwrap_or(url);
-    let url_without_scheme = url_without_scheme.strip_prefix("http://").unwrap_or(url_without_scheme);
+    let url_without_scheme = url_without_scheme
+        .strip_prefix("http://")
+        .unwrap_or(url_without_scheme);
 
     // Validate this is actually a GitHub URL
     if !url_without_scheme.starts_with("github.com/") {
@@ -108,9 +107,7 @@ where
     // Clone to a temporary directory first to avoid data loss on failure
     let temp_dest = parent.join(format!(
         ".{}.tmp.{}",
-        dest.file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("clone"),
+        dest.file_name().and_then(|n| n.to_str()).unwrap_or("clone"),
         std::process::id()
     ));
 
@@ -161,7 +158,6 @@ where
 
     Ok(())
 }
-
 
 /// Pull latest changes for an existing git repository
 pub fn pull_repo(repo_path: &Path) -> Result<()> {

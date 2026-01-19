@@ -4,6 +4,14 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
+/// Installation scope for skills
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, clap::ValueEnum)]
+pub enum InstallScope {
+    #[default]
+    Global,
+    Local,
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SkillFrontmatter {
     #[serde(default)]
@@ -14,8 +22,10 @@ pub struct SkillFrontmatter {
     pub version: Option<String>,
     #[serde(default)]
     pub author: Option<String>,
-    #[serde(default, rename = "invocationHint")]
+    #[serde(default)]
     pub invocation_hint: Option<String>,
+    #[serde(default, rename = "invocationHint")]
+    pub argument_hint: Option<String>,
 }
 
 #[derive(Debug, Clone)]
