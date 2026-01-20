@@ -1,12 +1,15 @@
 use anyhow::Result;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
+use crossterm::event::{KeyCode, KeyEvent};
+use crate::keybindings::map_key_to_action;
 use crate::actions::Action;
-use crate::config::skills::InstallScope;
+use crate::config::InstallScope;
 use crate::config::{
-    scan_agents, scan_commands, scan_plugins, scan_skills, validate_command, validate_server_name,
-    Agent, AgentType, Command, Hook, HookAction, HookEvent, HookGroup, McpServer, Plugin,
-    PresetMcpServer, Settings, Skill, ALLOWED_MCP_COMMANDS, PRESET_MCP_SERVERS,
+    create_agent_template, create_command_template, create_skill_template, scan_agents,
+    scan_commands, scan_plugins, scan_skills, validate_command, validate_server_name, Agent,
+    AgentType, Command, Hook, HookAction, HookEvent, HookGroup, McpServer, Plugin, PresetMcpServer,
+    Settings, Skill, ALLOWED_MCP_COMMANDS, PRESET_MCP_SERVERS,
 };
 use crate::services::ResourceManager;
 use crate::version::{
@@ -49,7 +52,7 @@ impl App {
 
         let mut app = Self {
             running: true,
-            tab: Tab::Hooks,
+            tab: Tab::Home,
             input_mode: InputMode::Normal,
             focus: Focus::List,
             list_index: 0,
@@ -76,23 +79,35 @@ impl App {
     }
 
     pub fn reload_all(&mut self) -> Result<()> {
+        self.settings_path = self.current_platform.settings_path();
         self.settings = Settings::load(&self.settings_path).unwrap_or_default();
 
-        let skills_dir = match self.current_scope {
-            InstallScope::Global => self.current_platform.global_dir(),
-            InstallScope::Local => std::env::current_dir()
-                .unwrap_or_else(|_| PathBuf::from("."))
-                .join(self.current_platform.project_dir()),
+        let (skills_dir, plugins_dir, commands_dir, agents_dir) = match self.current_scope {
+            InstallScope::Global => (
+                self.current_platform.skills_dir(),
+                self.current_platform.plugins_dir(),
+                self.current_platform.commands_dir(),
+                self.current_platform.agents_dir(),
+            ),
+            InstallScope::Local => {
+                let base = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+                let skills_rel = PathBuf::from(self.current_platform.project_dir());
+                let parent = skills_rel.parent().unwrap_or_else(|| Path::new("."));
+
+                (
+                    base.join(&skills_rel),
+                    base.join(parent).join("plugins"),
+                    base.join(parent).join("commands"),
+                    base.join(parent).join("agents"),
+                )
+            }
         };
 
         self.skills = scan_skills(&skills_dir).unwrap_or_default();
-        self.plugins = scan_plugins(
-            &crate::config::get_plugins_dir(),
-            &self.settings.enabled_plugins,
-        )
-        .unwrap_or_default();
-        self.commands = scan_commands(&crate::config::get_commands_dir()).unwrap_or_default();
-        self.agents = scan_agents(&crate::config::get_agents_dir()).unwrap_or_default();
+        self.plugins =
+            scan_plugins(&plugins_dir, &self.settings.enabled_plugins).unwrap_or_default();
+        self.commands = scan_commands(&commands_dir).unwrap_or_default();
+        self.agents = scan_agents(&agents_dir).unwrap_or_default();
         self.profiles = list_profiles().unwrap_or_default();
         self.unsaved_changes = false;
         Ok(())
@@ -107,6 +122,7 @@ impl App {
 
     pub fn current_list(&self) -> Vec<ListItem> {
         match self.tab {
+            Tab::Home => vec![],
             Tab::Hooks => self
                 .settings
                 .hooks
@@ -151,6 +167,80 @@ impl App {
         list.get(self.list_index).cloned()
     }
 
+
+    pub fn on_key(&mut self, key: KeyEvent) -> Result<()> {
+        // Clear any previous message
+        self.message = None;
+
+        // Handle special cases for insert mode
+        if self.input_mode == InputMode::Insert {
+            match key.code {
+                KeyCode::Tab => {
+                    self.cycle_modal_field(true);
+                    return Ok(());
+                }
+                KeyCode::BackTab => {
+                    self.cycle_modal_field(false);
+                    return Ok(());
+                }
+                KeyCode::Char(' ') => {
+                    // In add hook modal, space on type field toggles type
+                    if let Some(ModalType::AddHook { .. }) = &self.modal {
+                        if self.modal_index == 1 {
+                            self.cycle_hook_type();
+                            return Ok(());
+                        }
+                    }
+                    // Otherwise, treat as character input
+                    if self.modal_index == 2
+                        || !matches!(&self.modal, Some(ModalType::AddHook { .. }))
+                    {
+                        self.update_modal_field(' ');
+                        return Ok(());
+                    }
+                }
+                KeyCode::Char(c) => {
+                    // Only allow character input on the target field for hooks
+                    if let Some(ModalType::AddHook { .. }) = &self.modal {
+                        if self.modal_index == 2 {
+                            self.update_modal_field(c);
+                        }
+                    } else {
+                        self.update_modal_field(c);
+                    }
+                    return Ok(());
+                }
+                KeyCode::Backspace => {
+                    self.backspace_modal_field();
+                    return Ok(());
+                }
+                KeyCode::Up => {
+                    // In add hook modal, up/down on event field cycles events
+                    if let Some(ModalType::AddHook { .. }) = &self.modal {
+                        if self.modal_index == 0 {
+                            self.cycle_hook_event(false);
+                            return Ok(());
+                        }
+                    }
+                }
+                KeyCode::Down => {
+                    if let Some(ModalType::AddHook { .. }) = &self.modal {
+                        if self.modal_index == 0 {
+                            self.cycle_hook_event(true);
+                            return Ok(());
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // Map key to action and handle
+        if let Some(action) = map_key_to_action(key, &self.input_mode) {
+            self.handle_action(action)?;
+        }
+        Ok(())
+    }
     pub fn handle_action(&mut self, action: Action) -> Result<()> {
         match action {
             Action::MoveUp => self.move_up(),
@@ -303,6 +393,7 @@ impl App {
 
     fn start_add(&mut self) {
         let modal = match self.tab {
+            Tab::Home => return,
             Tab::Hooks => ModalType::AddHook {
                 event: HookEvent::UserPromptSubmit,
                 hook_type: HookType::Command,
@@ -739,7 +830,7 @@ impl App {
                         std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
                     }
                 };
-                if let Err(e) = export_profile(&name, &target_dir, self.current_platform) {
+                if let Err(e) = export_profile(&name, &target_dir, self.current_platform, false) {
                     self.message = Some(format!("Failed to apply profile: {}", e));
                 } else {
                     self.reload_all()?;
@@ -776,19 +867,19 @@ impl App {
 
     fn create_skill(&mut self, name: &str) -> Result<()> {
         let path = crate::config::get_skills_dir().join(name).join("SKILL.md");
-        let content = crate::config::skills::create_skill_template(name);
+        let content = create_skill_template(name);
         self.create_resource(path, content, format!("Created skill '{}'", name))
     }
 
     fn create_command(&mut self, name: &str) -> Result<()> {
         let path = crate::config::get_commands_dir().join(format!("{}.md", name));
-        let content = crate::config::commands::create_command_template(name);
+        let content = create_command_template(name);
         self.create_resource(path, content, format!("Created command '{}'", name))
     }
 
     fn create_agent(&mut self, name: &str) -> Result<()> {
         let path = crate::config::get_agents_dir().join(format!("{}.md", name));
-        let content = crate::config::agents::create_agent_template(name);
+        let content = create_agent_template(name);
         self.create_resource(path, content, format!("Created agent '{}'", name))
     }
 
